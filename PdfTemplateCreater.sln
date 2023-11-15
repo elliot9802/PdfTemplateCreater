@@ -3,15 +3,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.7.34031.279
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppPdfTemplateWApi", "AppPdfTemplateWApi\AppPdfTemplateWApi.csproj", "{CB306EEF-DE9D-4466-93CE-EFDDA2520364}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppPdfTemplateWApi", "AppPdfTemplateWApi\AppPdfTemplateWApi.csproj", "{CB306EEF-DE9D-4466-93CE-EFDDA2520364}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Services", "Services\Services.csproj", "{4D258E2A-7295-4FB2-93BA-1E7D39716E34}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Services", "Services\Services.csproj", "{4D258E2A-7295-4FB2-93BA-1E7D39716E34}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Models", "Models\Models.csproj", "{848B24EB-E33B-4173-8CAB-C4D98BCD629E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Models", "Models\Models.csproj", "{848B24EB-E33B-4173-8CAB-C4D98BCD629E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DbContext", "DbContext\DbContext.csproj", "{0AFA9FCE-01CE-4860-A85C-B0BD0CD72130}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DbContext", "DbContext\DbContext.csproj", "{0AFA9FCE-01CE-4860-A85C-B0BD0CD72130}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DbModels", "DbModels\DbModels.csproj", "{43FA8F6F-3C11-4FF1-87BC-250C0C018683}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DbModels", "DbModels\DbModels.csproj", "{43FA8F6F-3C11-4FF1-87BC-250C0C018683}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrontendEditor", "FrontendEditor\FrontendEditor.csproj", "{64799B82-823E-45BE-AFEF-E852D79D78AD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{43FA8F6F-3C11-4FF1-87BC-250C0C018683}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{43FA8F6F-3C11-4FF1-87BC-250C0C018683}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{43FA8F6F-3C11-4FF1-87BC-250C0C018683}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64799B82-823E-45BE-AFEF-E852D79D78AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64799B82-823E-45BE-AFEF-E852D79D78AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64799B82-823E-45BE-AFEF-E852D79D78AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64799B82-823E-45BE-AFEF-E852D79D78AD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -21,13 +21,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCorsPolicy", builder =>
     {
-
-#if DEBUG
-        builder.WithOrigins("http://localhost:5174")
-#endif
-#if RELEASE
-        builder.WithOrigins("https://*.actorsmartbook.se", "https://*.actorsmartbook.no") 
-#endif
+        builder.WithOrigins("http://127.0.0.1:5500")
                .SetIsOriginAllowedToAllowWildcardSubdomains()
                .WithMethods("POST")
                .WithHeaders("Content-Type");

@@ -1,4 +1,5 @@
-﻿using DbContext;
+﻿using Configuration;
+using DbContext;
 using DbModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -15,23 +16,28 @@ namespace Services
 {
     public class PdfTemplateService : IPdfTemplateService
     {
-        private readonly IConfiguration _configuration;
+        #region constructor logic
         private readonly ILogger<PdfTemplateService> _logger;
         private readonly string _dbLogin;
         private readonly string _backgroundImagePath;
         private readonly string _scissorsLineImagePath;
         private readonly string _adImagePath;
 
-        public PdfTemplateService(ILogger<PdfTemplateService> logger, IConfiguration configuration)
+        public PdfTemplateService(ILogger<PdfTemplateService> logger)
         {
-            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _dbLogin = _configuration["DbLogins"] ?? throw new KeyNotFoundException("DbLogins configuration is missing.");
-            _backgroundImagePath = _configuration["BackgroundImagePath"] ?? throw new KeyNotFoundException("BackgroundImagePath configuration is missing.");
-            _scissorsLineImagePath = _configuration["ScissorsLineImagePath"] ?? throw new KeyNotFoundException("ScissorsLineImagePath configuration is missing.");
-            _adImagePath = _configuration["AdImagePath"] ?? throw new KeyNotFoundException("ScissorsLineImagePath configuration is missing.");
-        }
 
+            var dbLoginDetail = AppConfig.GetDbLoginDetails("DbLogins");
+            _dbLogin = dbLoginDetail.DbConnectionString ?? throw new InvalidOperationException("Database connection string is not configured.");
+
+            var imagePaths = AppConfig.GetImagePaths();
+            _backgroundImagePath = imagePaths.BackgroundImagePath ?? throw new KeyNotFoundException("BackgroundImagePath configuration is missing.");
+            _scissorsLineImagePath = imagePaths.ScissorsLineImagePath ?? throw new KeyNotFoundException("ScissorsLineImagePath configuration is missing.");
+            _adImagePath = imagePaths.AdImagePath ?? throw new KeyNotFoundException("AdImagePath configuration is missing.");
+        }
+        #endregion
+
+        #region database methods
         public async Task<TicketsDataDto> GetTicketDataAsync(TicketHandling ticketDetails)
         {
             using var db = csMainDbContext.DbContext(_dbLogin);
@@ -45,6 +51,45 @@ namespace Services
             }
             return templateData;
         }
+        #endregion
+
+        #region Creating Pdf methods
+        #region database methods
+        public async Task<ITicketTemplate> CreateTemplateAsync(TemplateCUdto _src)
+        {
+            using (var db = csMainDbContext.DbContext(_dbLogin))
+            {
+                var _item = new TicketTemplateDbM(_src);
+
+                db.TicketTemplate.Add(_item);
+
+                await db.SaveChangesAsync();
+                return _item;
+            }
+        }
+
+        public async Task<ITicketTemplate> DeleteTemplateAsync(Guid id)
+        {
+            using (var db = csMainDbContext.DbContext(_dbLogin))
+            {
+                var tt = await db.TicketTemplate
+                    .FirstOrDefaultAsync(tt => tt.TicketTemplateId == id);
+                if (tt == null)
+                {
+                    throw new ArgumentException($"Item with id {id} does not exist");
+                }
+                else
+                {
+                    db.TicketTemplate.Remove(tt);
+
+                    await db.SaveChangesAsync();
+
+                    return tt;
+                }
+            }
+        }
+        #endregion
+
 
         public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketDetails, string backgroundImagePath = null)
         {
@@ -79,7 +124,7 @@ namespace Services
             page.Graphics.DrawImage(background, origin.X, origin.Y, 1024 * scale, 364 * scale);
         }
 
-        private void DrawTextIfCondition(PdfGraphics graphics, bool condition, object value, PointF origin, float scale, float? positionX, float? positionY,  PdfFont font, string format = null)
+        private void DrawTextIfCondition(PdfGraphics graphics, bool condition, object value, PointF origin, float scale, float? positionX, float? positionY, PdfFont font, string format = null)
         {
             if (condition && value != null)
             {
@@ -104,22 +149,22 @@ namespace Services
             DrawTextIfCondition(graphics, ticketDetails.IncludeEmail, ticketData.eMail, origin, scale, ticketDetails.EmailPositionX, ticketDetails.EmailPositionY, regularFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeContactPerson, ticketData.KontaktPerson, origin, scale, ticketDetails.NamePositionX, ticketDetails.NamePositionY, regularFont);
-            
-            DrawTextIfCondition(graphics, ticketDetails.IncludeServiceFee, ticketData.serviceavgift1_kr, origin, scale, ticketDetails.ServiceFeePositionX , ticketDetails.ServiceFeePositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeWebBookingNr, ticketData.webbkod, origin, scale, ticketDetails.WebBookingNumberPositionX , ticketDetails.WebBookingNumberPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeServiceFee, ticketData.serviceavgift1_kr, origin, scale, ticketDetails.ServiceFeePositionX, ticketDetails.ServiceFeePositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeBookingNr, ticketData.BokningsNr, origin, scale, ticketDetails.BookingNrPositionX , ticketDetails.BookingNrPositionY, regularFont);
-           
-            DrawTextIfCondition(graphics, ticketDetails.IncludeEventName, ticketData.namn1, origin, scale, ticketDetails.EventNamePositionX , ticketDetails.EventNamePositionY, regularFont);
-           
-            DrawTextIfCondition(graphics, ticketDetails.IncludeSubEventName, ticketData.namn, origin, scale, ticketDetails.SubEventNamePositionX , ticketDetails.SubEventNamePositionY, regularFont);
-           
-            DrawTextIfCondition(graphics, ticketDetails.IncludeEventDate, ticketData.datumStart, origin, scale, ticketDetails.EventDatePositionX , ticketDetails.EventDatePositionY, regularFont);
-         
-            DrawTextIfCondition(graphics, ticketDetails.IncludePrice, ticketData.Pris, origin, scale, ticketDetails.PricePositionX , ticketDetails.PricePositionY, regularFont);
-            
-            DrawTextIfCondition(graphics, ticketDetails.IncludePBookId, ticketData.platsbokad_id, origin, scale, ticketDetails.PBookIdPositionX , ticketDetails.PBookIdPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeWebBookingNr, ticketData.webbkod, origin, scale, ticketDetails.WebBookingNumberPositionX, ticketDetails.WebBookingNumberPositionY, regularFont);
+
+            DrawTextIfCondition(graphics, ticketDetails.IncludeBookingNr, ticketData.BokningsNr, origin, scale, ticketDetails.BookingNrPositionX, ticketDetails.BookingNrPositionY, regularFont);
+
+            DrawTextIfCondition(graphics, ticketDetails.IncludeEventName, ticketData.namn1, origin, scale, ticketDetails.EventNamePositionX, ticketDetails.EventNamePositionY, regularFont);
+
+            DrawTextIfCondition(graphics, ticketDetails.IncludeSubEventName, ticketData.namn, origin, scale, ticketDetails.SubEventNamePositionX, ticketDetails.SubEventNamePositionY, regularFont);
+
+            DrawTextIfCondition(graphics, ticketDetails.IncludeEventDate, ticketData.datumStart, origin, scale, ticketDetails.EventDatePositionX, ticketDetails.EventDatePositionY, regularFont);
+
+            DrawTextIfCondition(graphics, ticketDetails.IncludePrice, ticketData.Pris, origin, scale, ticketDetails.PricePositionX, ticketDetails.PricePositionY, regularFont);
+
+            DrawTextIfCondition(graphics, ticketDetails.IncludePBookId, ticketData.platsbokad_id, origin, scale, ticketDetails.PBookIdPositionX, ticketDetails.PBookIdPositionY, regularFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeChairNr, ticketData.ArtikelNr, origin, scale, ticketDetails.ArtNrPositionX, ticketDetails.ArtNrPositionY, regularFont);
 
@@ -193,51 +238,51 @@ namespace Services
 
         private void DrawAd(PdfGraphics graphics, PointF origin, float scale)
         {
-                using FileStream adImageStream = new FileStream(_adImagePath, FileMode.Open, FileAccess.Read);
-                PdfBitmap adImage = new PdfBitmap(adImageStream);
+            using FileStream adImageStream = new FileStream(_adImagePath, FileMode.Open, FileAccess.Read);
+            PdfBitmap adImage = new PdfBitmap(adImageStream);
 
-                PointF adPosition = new PointF(
-                origin.X, // Aligned with the left edge of the ticket
-                origin.Y + 500 * scale + 10 * scale // Just below the ticket, 10 units of space
-                );
-                SizeF adSize = new SizeF(1024 * scale, 820 * scale); // Full width and scaled height
+            PointF adPosition = new PointF(
+            origin.X, // Aligned with the left edge of the ticket
+            origin.Y + 500 * scale + 10 * scale // Just below the ticket, 10 units of space
+            );
+            SizeF adSize = new SizeF(1024 * scale, 820 * scale); // Full width and scaled height
 
-                graphics.DrawImage(adImage, adPosition, adSize);
+            graphics.DrawImage(adImage, adPosition, adSize);
         }
 
         private void DrawBarcode(PdfPage page, PointF origin, float scale, TicketHandling ticketDetails)
         {
-                PointF barcodePosition = new PointF(
-                origin.X + (ticketDetails.BarcodePositionX.HasValue ? ticketDetails.BarcodePositionX.Value * scale : 0),
-                origin.Y + (ticketDetails.BarcodePositionY.HasValue ? ticketDetails.BarcodePositionY.Value * scale : 0)
-            );
+            PointF barcodePosition = new PointF(
+            origin.X + (ticketDetails.BarcodePositionX.HasValue ? ticketDetails.BarcodePositionX.Value * scale : 0),
+            origin.Y + (ticketDetails.BarcodePositionY.HasValue ? ticketDetails.BarcodePositionY.Value * scale : 0)
+        );
 
-                if (ticketDetails.UseQRCode)
-                {
-                    // Draw QR code
-                    PdfQRBarcode qrCode = new PdfQRBarcode();
-                    qrCode.Text = ticketDetails.BarcodeContent;
-                    qrCode.Size = new SizeF(450 * scale, 225 * scale);
-                    qrCode.Draw(page.Graphics, barcodePosition
-                    );
-                }
-                else
-                {
-                    // Draw barcode
-                    PdfCode39Barcode barcode = new PdfCode39Barcode();
-                    barcode.Text = ticketDetails.BarcodeContent;
-                    barcode.Size = new SizeF(330 * scale, 120 * scale);
+            if (ticketDetails.UseQRCode)
+            {
+                // Draw QR code
+                PdfQRBarcode qrCode = new PdfQRBarcode();
+                qrCode.Text = ticketDetails.BarcodeContent;
+                qrCode.Size = new SizeF(450 * scale, 225 * scale);
+                qrCode.Draw(page.Graphics, barcodePosition
+                );
+            }
+            else
+            {
+                // Draw barcode
+                PdfCode39Barcode barcode = new PdfCode39Barcode();
+                barcode.Text = ticketDetails.BarcodeContent;
+                barcode.Size = new SizeF(330 * scale, 120 * scale);
 
-                    // Save the current state of the graphics object
-                    page.Graphics.Save();
-                    // Apply translation and rotation
-                    page.Graphics.TranslateTransform(barcodePosition.X + barcode.Size.Height, barcodePosition.Y);
-                    page.Graphics.RotateTransform(-90);
-                    // Draw the barcode at the transformed position
-                    barcode.Draw(page.Graphics, PointF.Empty);
-                    // Restore the graphics state to its original configuration
-                    page.Graphics.Restore();
-                }
+                // Save the current state of the graphics object
+                page.Graphics.Save();
+                // Apply translation and rotation
+                page.Graphics.TranslateTransform(barcodePosition.X + barcode.Size.Height, barcodePosition.Y);
+                page.Graphics.RotateTransform(-90);
+                // Draw the barcode at the transformed position
+                barcode.Draw(page.Graphics, PointF.Empty);
+                // Restore the graphics state to its original configuration
+                page.Graphics.Restore();
+            }
         }
         private async Task SaveDocumentAsync(PdfDocument document, string outputPath)
         {
@@ -253,5 +298,6 @@ namespace Services
                 throw;
             }
         }
+        #endregion
     }
 }

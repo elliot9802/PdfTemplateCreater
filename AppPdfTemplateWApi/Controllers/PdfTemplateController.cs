@@ -1,3 +1,4 @@
+using DbModels;
 using Microsoft.AspNetCore.Mvc;
 using Models;
 using Services;
@@ -20,6 +21,48 @@ namespace AppPdfTemplateWApi.Controllers
             _pdfTemplateService = pdfTemplateService ?? throw new ArgumentNullException(nameof(pdfTemplateService));
             _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        }
+
+        [HttpPost()]
+        [ActionName("CreateTicketTemplate")]
+        [ProducesResponseType(200, Type = typeof(TemplateCUdto))]
+        [ProducesResponseType(400, Type = typeof(string))]
+        public async Task<IActionResult> CreateTicketTemplate([FromBody] TemplateCUdto _src)
+        {
+            try
+            {
+                //if (_src.TicketTemplateId != null)
+                //    throw new ArgumentException($"{nameof(_src.TicketTemplateId)} must be null when creating a new ticket template");
+                var pn = await _pdfTemplateService.CreateTemplateAsync(_src);
+
+                return Ok(pn);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Could not create Ticket Template. Error {ex.InnerException}");
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [ActionName("DeleteTicketTemplate")]
+        [ProducesResponseType(200, Type = typeof(TicketTemplateDbM))]
+        [ProducesResponseType(400, Type = typeof(string))]
+        public async Task<IActionResult> DeleteTicketTemplate(string id)
+        {
+            try
+            {
+                var _id = Guid.Parse(id);
+                var template = await _pdfTemplateService.DeleteTemplateAsync(_id);
+                return Ok(template);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.InnerException?.Message);
+            }
         }
 
         [HttpPost("createPdf")]

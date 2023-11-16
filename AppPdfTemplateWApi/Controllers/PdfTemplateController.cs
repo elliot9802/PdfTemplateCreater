@@ -1,12 +1,14 @@
 using DbModels;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Models;
+using Newtonsoft.Json;
 using Services;
 
 namespace AppPdfTemplateWApi.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/[controller]/[action]")]
     public class PdfTemplateController : ControllerBase
     {
 
@@ -26,46 +28,45 @@ namespace AppPdfTemplateWApi.Controllers
         [HttpPost()]
         [ActionName("CreateTicketTemplate")]
         [ProducesResponseType(200, Type = typeof(TemplateCUdto))]
-        [ProducesResponseType(400, Type = typeof(string))]
+        [ProducesResponseType(400, Type = typeof(ProblemDetails))]
         public async Task<IActionResult> CreateTicketTemplate([FromBody] TemplateCUdto _src)
         {
+            // Generate a correlation Id for the current operation
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogInformation("CreateTicketTemplate invoked with correlation id: {CorrelationId}", correlationId);
+            // Extract and deserialize the TicketHandlingJson to a TicketHandling object
+            // This assumes the TemplateCUdto class in the API has a TicketHandlingJson property of type string
+            if (!string.IsNullOrEmpty(_src.TicketHandlingJson))
+            {
+                _src.TicketsHandling = JsonConvert.DeserializeObject<TicketHandling>(_src.TicketHandlingJson);
+            }
             try
             {
-                //if (_src.TicketTemplateId != null)
-                //    throw new ArgumentException($"{nameof(_src.TicketTemplateId)} must be null when creating a new ticket template");
-                var pn = await _pdfTemplateService.CreateTemplateAsync(_src);
-
-                return Ok(pn);
+                var createdTemplate = await _pdfTemplateService.CreateTemplateAsync(_src);
+                return Ok(createdTemplate);
+            }
+            catch (ArgumentException argEx)
+            {
+                _logger.LogError(argEx, "Argument exception in CreateTicketTemplate with correlation id: {CorrelationId} and source: {@TemplateCUdto}", correlationId, _src);
+                return BadRequest(new ProblemDetails { Title = "Invalid argument", Detail = argEx.Message, Instance = correlationId });
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.LogError(dbEx, "Database update exception in CreateTicketTemplate with correlation id: {CorrelationId} and source: {@TemplateCUdto}", correlationId, _src);
+                // You might want to return a 500 error for database-related issues
+                return StatusCode(500, new ProblemDetails { Title = "Database error", Detail = "Error occurred while updating the database.", Instance = correlationId });
             }
             catch (Exception ex)
             {
-                return BadRequest($"Could not create Ticket Template. Error {ex.InnerException}");
+                _logger.LogError(ex, "Unhandled exception in CreateTicketTemplate with correlation id: {CorrelationId} and source: {@TemplateCUdto}", correlationId, _src);
+                return StatusCode(500, new ProblemDetails { Title = "Server error", Detail = "An unexpected error occurred.", Instance = correlationId });
             }
         }
 
-        [HttpDelete("{id}")]
-        [ActionName("DeleteTicketTemplate")]
-        [ProducesResponseType(200, Type = typeof(TicketTemplateDbM))]
+        [HttpPost()]
+        [ActionName("createPdf")]
+        [ProducesResponseType(200, Type = typeof(string))]
         [ProducesResponseType(400, Type = typeof(string))]
-        public async Task<IActionResult> DeleteTicketTemplate(string id)
-        {
-            try
-            {
-                var _id = Guid.Parse(id);
-                var template = await _pdfTemplateService.DeleteTemplateAsync(_id);
-                return Ok(template);
-            }
-            catch (ArgumentException ex)
-            {
-                return NotFound(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.InnerException?.Message);
-            }
-        }
-
-        [HttpPost("createPdf")]
         public async Task<IActionResult> CreatePdf([FromForm] TicketHandling ticketRequest, IFormFile bgFile)
         {
             if (bgFile == null || bgFile.Length == 0)
@@ -112,6 +113,28 @@ namespace AppPdfTemplateWApi.Controllers
                 {
                     await _fileService.DeleteAsync(outputPath);
                 }
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [ActionName("DeleteTicketTemplate")]
+        [ProducesResponseType(200, Type = typeof(TicketTemplateDbM))]
+        [ProducesResponseType(400, Type = typeof(string))]
+        public async Task<IActionResult> DeleteTicketTemplate(string id)
+        {
+            try
+            {
+                var _id = Guid.Parse(id);
+                var template = await _pdfTemplateService.DeleteTemplateAsync(_id);
+                return Ok(template);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.InnerException?.Message);
             }
         }
 

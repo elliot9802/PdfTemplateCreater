@@ -59,12 +59,26 @@ namespace Services
         {
             using (var db = csMainDbContext.DbContext(_dbLogin))
             {
-                var _item = new TicketTemplateDbM(_src);
+                // Convert TicketsHandling to JSON before saving
+                if (_src.TicketsHandling != null)
+                {
+                    var ticketTemplateDbM = new TicketTemplateDbM
+                    {
+                        TicketTemplateId = _src.TicketTemplateId,
+                        TicketsHandlingJson = JsonConvert.SerializeObject(_src.TicketsHandling),
+                        ShowEventInfo = _src.ShowEventInfo
+                    };
+                    var _item = new TicketTemplateDbM(_src);
 
-                db.TicketTemplate.Add(_item);
+                    db.TicketTemplate.Add(_item);
 
-                await db.SaveChangesAsync();
-                return _item;
+                    await db.SaveChangesAsync();
+                    return _item;
+                }
+                else
+                {
+                    throw new NotImplementedException();
+                }
             }
         }
 
@@ -89,8 +103,6 @@ namespace Services
             }
         }
         #endregion
-
-
         public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketDetails, string backgroundImagePath = null)
         {
             using PdfDocument document = new PdfDocument();
@@ -111,7 +123,7 @@ namespace Services
 
             DrawBackgroundImage(page, backgroundImagePath, ticketOrigin, scaleFactor);
             DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketDetails, regularFont, boldFont);
-            DrawBarcode(page, ticketOrigin, scaleFactor, ticketDetails);
+            DrawBarcode(page, ticketOrigin, scaleFactor, ticketDetails, ticketData);
             DrawScissorsLine(page.Graphics, ticketOrigin, scaleFactor, ticketDetails);
             DrawAd(page.Graphics, ticketOrigin, scaleFactor);
         }
@@ -250,7 +262,7 @@ namespace Services
             graphics.DrawImage(adImage, adPosition, adSize);
         }
 
-        private void DrawBarcode(PdfPage page, PointF origin, float scale, TicketHandling ticketDetails)
+        private void DrawBarcode(PdfPage page, PointF origin, float scale, TicketHandling ticketDetails, TicketsDataDto ticketData)
         {
             PointF barcodePosition = new PointF(
             origin.X + (ticketDetails.BarcodePositionX.HasValue ? ticketDetails.BarcodePositionX.Value * scale : 0),
@@ -261,7 +273,7 @@ namespace Services
             {
                 // Draw QR code
                 PdfQRBarcode qrCode = new PdfQRBarcode();
-                qrCode.Text = ticketDetails.BarcodeContent;
+                qrCode.Text = ticketData.webbkod;
                 qrCode.Size = new SizeF(450 * scale, 225 * scale);
                 qrCode.Draw(page.Graphics, barcodePosition
                 );
@@ -270,7 +282,7 @@ namespace Services
             {
                 // Draw barcode
                 PdfCode39Barcode barcode = new PdfCode39Barcode();
-                barcode.Text = ticketDetails.BarcodeContent;
+                barcode.Text = ticketData.webbkod;
                 barcode.Size = new SizeF(330 * scale, 120 * scale);
 
                 // Save the current state of the graphics object

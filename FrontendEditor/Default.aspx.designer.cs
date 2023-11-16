@@ -15,31 +15,31 @@ namespace FrontEndEditor
     {
 
         /// <summary>
-        /// bgFileUpload control.
+        /// chkIncludePrice control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.FileUpload bgFileUpload;
+        protected global::System.Web.UI.WebControls.CheckBox chkIncludePrice;
 
         /// <summary>
-        /// txtBarcodeContent control.
+        /// txtBarcodePositionX control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.TextBox txtBarcodeContent;
+        protected global::System.Web.UI.WebControls.TextBox txtBarcodePositionX;
 
         /// <summary>
-        /// txtId control.
+        /// txtShowEventInfo control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.TextBox txtId;
+        protected global::System.Web.UI.WebControls.TextBox txtShowEventInfo;
 
         /// <summary>
         /// btnPreview control.

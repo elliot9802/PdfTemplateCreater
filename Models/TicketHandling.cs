@@ -130,8 +130,6 @@
         public float? WebbcodePositionY { get; set; }
         #endregion
 
-        public string BarcodeContent { get; set; }
-
         public float? BarcodePositionX { get; set; }
         public float? BarcodePositionY { get; set; }
 

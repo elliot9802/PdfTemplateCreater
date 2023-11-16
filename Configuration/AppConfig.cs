@@ -42,6 +42,11 @@ namespace Configuration
             
             ImgPaths = new ImagePaths();
             _configuration.GetSection("ImagePaths").Bind(ImgPaths);
+
+            var syncfusionLicenseKey = _configuration["SyncfusionLicenseKey"];
+            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(syncfusionLicenseKey);
+
+
         }
 
         public static IConfigurationRoot ConfigurationRoot

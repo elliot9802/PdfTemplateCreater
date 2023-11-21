@@ -25,6 +25,84 @@ namespace AppPdfTemplateWApi.Controllers
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        [HttpPost("CreateOrUpdateTemplate")]
+        public async Task<IActionResult> CreateOrUpdateTemplate(
+        [FromForm] TicketHandling ticketHandling,
+        IFormFile bgFile,
+        [FromForm] string customTextElementsJson, // Accept JSON string
+        bool saveToDb = false)
+        {
+            // Manually deserialize the JSON string to List<CustomTextElement>
+            if (!string.IsNullOrEmpty(customTextElementsJson))
+            {
+                ticketHandling.CustomTextElements =
+                    JsonConvert.DeserializeObject<List<CustomTextElement>>(customTextElementsJson);
+            }
+
+            var tempBgFilePath = Path.GetTempFileName();
+            string outputPath = _pdfService.GetTemporaryPdfFilePath();
+
+            if (bgFile == null || bgFile.Length == 0)
+            {
+                _logger.LogWarning("Background file missing or empty.");
+                return BadRequest("Please provide a background image file.");
+            }
+            try
+            {
+                // Generate the PDF Preview
+                using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
+                {
+                    await bgFile.CopyToAsync(stream);
+                }
+
+                var templateData = await _pdfTemplateService.GetTicketDataAsync(ticketHandling);
+                if (templateData == null)
+                {
+                    _logger.LogWarning($"No template data found for ticket creation");
+                    return NotFound("Ticket Id Not Found");
+                }
+
+                await _pdfTemplateService.CreatePdfAsync(outputPath, templateData, ticketHandling, tempBgFilePath);
+
+                // Step 2: If the user wants to save the template, save the details to the database
+                if (saveToDb)
+                {
+                    TemplateCUdto templateDetails = _pdfTemplateService.MapTicketHandlingToTemplateCUdto(ticketHandling);
+                    var createdTemplate = await _pdfTemplateService.CreateTemplateAsync(templateDetails);
+
+                    // Return the created template details
+                    return Ok(createdTemplate);
+                }
+                else
+                {
+                    var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
+                    var fileName = $"{Guid.NewGuid()}.pdf";
+
+                    _logger.LogInformation($"PDF created successfully. FileName: {fileName}");
+                    return File(pdfBytes, "application/pdf", fileName);
+
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occured while creating PDF");
+                return StatusCode(500, new
+                {
+                    message = "Error creating PDF",
+                    error = ex.Message
+                });
+            }
+            finally
+            {
+                _logger.LogInformation($"Cleaning up temporary files.");
+                await _fileService.DeleteAsync(tempBgFilePath);
+                if (_fileService.Exists(outputPath))
+                {
+                    await _fileService.DeleteAsync(outputPath);
+                }
+            }
+        }
+
         [HttpPost()]
         [ActionName("CreateTicketTemplate")]
         [ProducesResponseType(200, Type = typeof(TemplateCUdto))]

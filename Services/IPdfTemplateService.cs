@@ -11,5 +11,8 @@ namespace Services
         Task<ITicketTemplate> DeleteTemplateAsync(Guid id);
 
         Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketDetails, string backgroundImagePath);
+
+        TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling);
+
     }
 }

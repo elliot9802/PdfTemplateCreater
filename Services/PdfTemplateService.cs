@@ -2,7 +2,6 @@
 using DbContext;
 using DbModels;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Models;
 using Newtonsoft.Json;
@@ -55,25 +54,57 @@ namespace Services
 
         #region Creating Pdf methods
         #region database methods
+        public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
+        {
+            // Instantiate a new TemplateCUdto object
+            var templateCUdto = new TemplateCUdto
+            {
+                //TicketTemplateId = Guid.NewGuid(), // Assign a new Guid or obtain it from somewhere else if updating
+                TicketsHandling = ticketHandling, // Directly assign the TicketHandling object
+                                                  // The TicketHandlingJson is redundant if you're directly assigning the object above, unless you need it for some other operation
+                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling), // Serialize the TicketHandling to JSON
+                                                                                  // The ShowEventInfo property's value will depend on whether the layout is predefined or custom
+                                                                                  //ShowEventInfo = IsPredefinedLayout(ticketHandling) ? DeterminePredefinedLayout(ticketHandling) : 4
+            };
+
+            return templateCUdto;
+        }
+
         public async Task<ITicketTemplate> CreateTemplateAsync(TemplateCUdto _src)
         {
             using (var db = csMainDbContext.DbContext(_dbLogin))
             {
                 // Convert TicketsHandling to JSON before saving
-                if (_src.TicketsHandling != null)
+                if (_src.ShowEventInfo >= 1 && _src.ShowEventInfo <= 3)
                 {
-                    var ticketTemplateDbM = new TicketTemplateDbM
+                    var predefinedTemplate = await db.TicketTemplate
+                        .FirstOrDefaultAsync(t => t.ShowEventInfo == _src.ShowEventInfo);
+                    if (predefinedTemplate != null)
                     {
-                        TicketTemplateId = _src.TicketTemplateId,
-                        TicketsHandlingJson = JsonConvert.SerializeObject(_src.TicketsHandling),
-                        ShowEventInfo = _src.ShowEventInfo
-                    };
-                    var _item = new TicketTemplateDbM(_src);
+                        return predefinedTemplate;
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                }
+                else if (_src.ShowEventInfo == 4)
+                {
 
-                    db.TicketTemplate.Add(_item);
+                    {
+                        var ticketTemplateDbM = new TicketTemplateDbM
+                        {
+                            TicketTemplateId = _src.TicketTemplateId,
+                            TicketsHandlingJson = JsonConvert.SerializeObject(_src.TicketsHandling),
+                            ShowEventInfo = _src.ShowEventInfo
+                        };
+                        var _item = new TicketTemplateDbM(_src);
 
-                    await db.SaveChangesAsync();
-                    return _item;
+                        db.TicketTemplate.Add(_item);
+
+                        await db.SaveChangesAsync();
+                        return _item;
+                    }
                 }
                 else
                 {
@@ -106,23 +137,26 @@ namespace Services
         public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketDetails, string backgroundImagePath = null)
         {
             using PdfDocument document = new PdfDocument();
-            PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 10);
-            PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 12, PdfFontStyle.Bold);
+            PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
+            PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
+            PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9);
+
             PdfPage page = document.Pages.Add();
 
             backgroundImagePath ??= _backgroundImagePath;
-            DrawPageContent(page, backgroundImagePath, ticketData, ticketDetails, regularFont, boldFont);
+            DrawPageContent(page, backgroundImagePath, ticketData, ticketDetails, regularFont, boldFont, customFont);
 
             await SaveDocumentAsync(document, outputPath);
         }
 
-        private void DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataDto ticketData, TicketHandling ticketDetails, PdfFont regularFont, PdfFont boldFont)
+        private void DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataDto ticketData, TicketHandling ticketDetails, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
         {
             float scaleFactor = Math.Min(page.GetClientSize().Width / 1024f, 1);
             PointF ticketOrigin = new PointF((page.GetClientSize().Width - (1024 * scaleFactor)) / 2, 0);
 
             DrawBackgroundImage(page, backgroundImagePath, ticketOrigin, scaleFactor);
-            DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketDetails, regularFont, boldFont);
+            DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketDetails, regularFont, boldFont, customFont);
+            DrawCustomTextElements(page.Graphics, ticketDetails, ticketOrigin, scaleFactor, regularFont);
             DrawBarcode(page, ticketOrigin, scaleFactor, ticketDetails, ticketData);
             DrawScissorsLine(page.Graphics, ticketOrigin, scaleFactor, ticketDetails);
             DrawAd(page.Graphics, ticketOrigin, scaleFactor);
@@ -148,15 +182,17 @@ namespace Services
             }
         }
 
-        private void DrawTextContent(PdfGraphics graphics, PointF origin, float scale, TicketsDataDto ticketData, TicketHandling ticketDetails, PdfFont regularFont, PdfFont boldFont)
+        private void DrawTextContent(PdfGraphics graphics, PointF origin, float scale, TicketsDataDto ticketData, TicketHandling ticketDetails, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
         {
+            PdfFont rutbokstavFont = new PdfStandardFont(PdfFontFamily.Helvetica, 24, PdfFontStyle.Bold);
+
             // Log method entry
-            Console.WriteLine("DrawTextContent method entered");
+            _logger.LogInformation("DrawTextContent method entered");
 
             // Log parameters
-            Console.WriteLine($"Origin: {origin}, Scale: {scale}");
-            Console.WriteLine($"TicketDetails: {JsonConvert.SerializeObject(ticketDetails)}");
-            Console.WriteLine($"TicketData: {JsonConvert.SerializeObject(ticketData)}");
+            _logger.LogInformation($"Origin: {origin}, Scale: {scale}");
+            _logger.LogInformation($"TicketDetails: {JsonConvert.SerializeObject(ticketDetails)}");
+            //_logger.LogInformation($"TicketData: {JsonConvert.SerializeObject(ticketData)}");
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeEmail, ticketData.eMail, origin, scale, ticketDetails.EmailPositionX, ticketDetails.EmailPositionY, regularFont);
 
@@ -164,39 +200,33 @@ namespace Services
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeServiceFee, ticketData.serviceavgift1_kr, origin, scale, ticketDetails.ServiceFeePositionX, ticketDetails.ServiceFeePositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeWebBookingNr, ticketData.webbkod, origin, scale, ticketDetails.WebBookingNumberPositionX, ticketDetails.WebBookingNumberPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeWebBookingNr, "Webbokningsnr: " + ticketData.webbkod, origin, scale, ticketDetails.WebBookingNumberPositionX, ticketDetails.WebBookingNumberPositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeBookingNr, ticketData.BokningsNr, origin, scale, ticketDetails.BookingNrPositionX, ticketDetails.BookingNrPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeBookingNr, "Bokningsnr: " + ticketData.BokningsNr, origin, scale, ticketDetails.BookingNrPositionX, ticketDetails.BookingNrPositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeEventName, ticketData.namn1, origin, scale, ticketDetails.EventNamePositionX, ticketDetails.EventNamePositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeEventName, ticketData.namn1, origin, scale, ticketDetails.EventNamePositionX, ticketDetails.EventNamePositionY, boldFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeSubEventName, ticketData.namn, origin, scale, ticketDetails.SubEventNamePositionX, ticketDetails.SubEventNamePositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeSubEventName, ticketData.namn2, origin, scale, ticketDetails.SubEventNamePositionX, ticketDetails.SubEventNamePositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeEventDate, ticketData.datumStart, origin, scale, ticketDetails.EventDatePositionX, ticketDetails.EventDatePositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeEventDate, "Köpdatum: " + ticketData.datumStart, origin, scale, ticketDetails.EventDatePositionX, ticketDetails.EventDatePositionY, regularFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludePrice, ticketData.Pris, origin, scale, ticketDetails.PricePositionX, ticketDetails.PricePositionY, regularFont);
-
-            DrawTextIfCondition(graphics, ticketDetails.IncludePBookId, ticketData.platsbokad_id, origin, scale, ticketDetails.PBookIdPositionX, ticketDetails.PBookIdPositionY, regularFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeChairNr, ticketData.ArtikelNr, origin, scale, ticketDetails.ArtNrPositionX, ticketDetails.ArtNrPositionY, regularFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeArtName, ticketData.Artikelnamn, origin, scale, ticketDetails.ArtNamePositionX, ticketDetails.ArtNamePositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeChairRow, ticketData.stolsrad, origin, scale, ticketDetails.ChairRowPositionX, ticketDetails.ChairRowPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeChairRow, ticketData.stolsrad, origin, scale, ticketDetails.ChairRowPositionX, ticketDetails.ChairRowPositionY, customFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeChairNr, ticketData.stolsnr, origin, scale, ticketDetails.ChairNrPositionX, ticketDetails.ChairNrPositionY, regularFont);
-
-            DrawTextIfCondition(graphics, ticketDetails.IncludeEventDateId, ticketData.eventdatum_id, origin, scale, ticketDetails.EventDateIdPositionX, ticketDetails.EventDateIdPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeChairNr, ticketData.stolsnr, origin, scale, ticketDetails.ChairNrPositionX, ticketDetails.ChairNrPositionY, customFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeLogorad1, ticketData.logorad1, origin, scale, ticketDetails.Logorad1PositionX, ticketDetails.Logorad1PositionY, regularFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeLogorad2, ticketData.logorad2, origin, scale, ticketDetails.Logorad2PositionX, ticketDetails.Logorad2PositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeLocation, ticketData.plats, origin, scale, ticketDetails.LocationPositionX, ticketDetails.LocationPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeSection, ticketData.namn, origin, scale, ticketDetails.SectionPositionX, ticketDetails.SectionPositionY, customFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeLocationName, ticketData.namn, origin, scale, ticketDetails.LocationNamePositionX, ticketDetails.LocationNamePositionY, regularFont);
-
-            DrawTextIfCondition(graphics, ticketDetails.IncludeFacilityName, ticketData.anamn, origin, scale, ticketDetails.FacilityNamePositionX, ticketDetails.FacilityNamePositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeFacilityName, ticketData.anamn, origin, scale, ticketDetails.FacilityNamePositionX, ticketDetails.FacilityNamePositionY, customFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeAd, ticketData.reklam1, origin, scale, ticketDetails.AdPositionX, ticketDetails.AdPositionY, regularFont);
 
@@ -206,11 +236,11 @@ namespace Services
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeArtNotText, ticketData.ArtNotText, origin, scale, ticketDetails.ArtNotTextPositionX, ticketDetails.ArtNotTextPositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeDatum, ticketData.Datum, origin, scale, ticketDetails.DatumPositionX, ticketDetails.DatumPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeDatum, ticketData.Datum, origin, scale, ticketDetails.DatumPositionX, ticketDetails.DatumPositionY, customFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeEntrance, ticketData.Ingang, origin, scale, ticketDetails.EntrancePositionX, ticketDetails.EntrancePositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeEntrance, ticketData.Ingang, origin, scale, ticketDetails.EntrancePositionX, ticketDetails.EntrancePositionY, customFont);
 
-            DrawTextIfCondition(graphics, ticketDetails.IncludeRutBokstav, ticketData.Rutbokstav, origin, scale, ticketDetails.RutBokstavPositionX, ticketDetails.RutBokstavPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketDetails.IncludeRutBokstav, ticketData.Rutbokstav, origin, scale, ticketDetails.RutBokstavPositionX, ticketDetails.RutBokstavPositionY, rutbokstavFont);
 
             DrawTextIfCondition(graphics, ticketDetails.IncludeWebbcode, ticketData.Webbcode, origin, scale, ticketDetails.WebbcodePositionX, ticketDetails.WebbcodePositionY, regularFont);
 
@@ -229,6 +259,27 @@ namespace Services
             DrawScissorsLine(graphics, origin, scale, ticketDetails);
 
             _logger.LogInformation("DrawTextContent method exited");
+        }
+
+        private void DrawCustomTextElements(PdfGraphics graphics, TicketHandling ticketDetails, PointF origin, float scale, PdfFont regularFont)
+        {
+            foreach (var customTextElement in ticketDetails.CustomTextElements)
+            {
+                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, customTextElement.FontSize);
+                PdfColor color = new PdfColor(Convert.ToByte(customTextElement.Color.Substring(1, 2), 16),
+                                      Convert.ToByte(customTextElement.Color.Substring(3, 2), 16),
+                                      Convert.ToByte(customTextElement.Color.Substring(5, 2), 16));
+                PdfBrush customBrush = new PdfSolidBrush(color);
+
+                // Calculate position based on scale and origin
+                PointF position = new PointF(
+                    origin.X + customTextElement.PositionX * scale,
+                    origin.Y + customTextElement.PositionY * scale
+                );
+
+                // Draw the text
+                graphics.DrawString(customTextElement.Text, customFont, customBrush, position);
+            }
         }
 
         private void DrawScissorsLine(PdfGraphics graphics, PointF origin, float scale, TicketHandling ticketDetails)
@@ -274,26 +325,32 @@ namespace Services
                 // Draw QR code
                 PdfQRBarcode qrCode = new PdfQRBarcode();
                 qrCode.Text = ticketData.webbkod;
-                qrCode.Size = new SizeF(450 * scale, 225 * scale);
-                qrCode.Draw(page.Graphics, barcodePosition
-                );
+                qrCode.Size = new SizeF(450 * scale, 205 * scale);
+                qrCode.Draw(page.Graphics, barcodePosition);
             }
             else
             {
                 // Draw barcode
                 PdfCode39Barcode barcode = new PdfCode39Barcode();
                 barcode.Text = ticketData.webbkod;
-                barcode.Size = new SizeF(330 * scale, 120 * scale);
+                barcode.Size = new SizeF(270 * scale, 90 * scale);
 
-                // Save the current state of the graphics object
-                page.Graphics.Save();
-                // Apply translation and rotation
-                page.Graphics.TranslateTransform(barcodePosition.X + barcode.Size.Height, barcodePosition.Y);
-                page.Graphics.RotateTransform(-90);
-                // Draw the barcode at the transformed position
-                barcode.Draw(page.Graphics, PointF.Empty);
-                // Restore the graphics state to its original configuration
-                page.Graphics.Restore();
+                if (ticketDetails.FlipBarcode)
+                {
+                    // Save the current state of the graphics object
+                    page.Graphics.Save();
+                    // Apply translation and rotation
+                    page.Graphics.TranslateTransform(barcodePosition.X + barcode.Size.Height, barcodePosition.Y);
+                    page.Graphics.RotateTransform(-90);
+                    // Draw the barcode at the transformed position
+                    barcode.Draw(page.Graphics, PointF.Empty);
+                    // Restore the graphics state to its original configuration
+                    page.Graphics.Restore();
+                }
+                else
+                {
+                    barcode.Draw(page.Graphics, barcodePosition);
+                }
             }
         }
         private async Task SaveDocumentAsync(PdfDocument document, string outputPath)

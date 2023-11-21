@@ -1,5 +1,4 @@
 ﻿using Models;
-//using Models.DTO;
 using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -13,7 +12,7 @@ namespace DbModels
         public override Guid TicketTemplateId { get; set; }
 
         // This column will store the JSON representation of TicketHandling.
-        [Column(TypeName = "nvarchar(max)")] // or use "json" if your database provider supports it
+        [Required]
         public string TicketsHandlingJson { get; set; }
 
         // This property is not mapped to the database, EF will ignore it.
@@ -43,6 +42,11 @@ namespace DbModels
         {
             TicketTemplateId = Guid.NewGuid();
             // Assuming the base constructor has already populated the fields accordingly
+            if (org.TicketsHandling != null)
+            {
+                // Ensure CustomTextElements is properly initialized and included
+                org.TicketsHandling.CustomTextElements = org.TicketsHandling.CustomTextElements ?? new List<CustomTextElement>();
+            }
             TicketsHandlingJson = JsonConvert.SerializeObject(org.TicketsHandling); // Serialize the TicketHandling object to JSON
         }
 

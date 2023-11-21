@@ -6,45 +6,57 @@
 
         // Properties for customization options
         #region Include
-        public bool IncludePBookId { get; set; }
-        public bool IncludeArtNr { get; set; }
-        public bool IncludePrice { get; set; }
-        public bool IncludeServiceFee { get; set; }
-        public bool IncludeArtName { get; set; }
-        public bool IncludeChairRow { get; set; }
-        public bool IncludeChairNr { get; set; }
-        public bool IncludeEventDateId { get; set; }
-        public bool IncludeEventDate { get; set; }
-        public bool IncludeEventName { get; set; }
-        public bool IncludeSubEventName { get; set; }
-        public bool IncludeLogorad1 { get; set; }
-        public bool IncludeLogorad2 { get; set; }
-        public bool IncludeLocation { get; set; }
-        public bool IncludeLocationName { get; set; }
-        public bool IncludeBookingNr { get; set; }
-        public bool IncludeWebBookingNr { get; set; }
-        public bool IncludeFacilityName { get; set; }
-        public bool IncludeAd { get; set; }
-        //public bool IncludeshowEventInfo { get; set; }
-        public bool IncludeStrukturArtikel { get; set; }
-        public bool IncludeDescription { get; set; }
-        public bool IncludeArtNotText { get; set; }
-        public bool IncludeContactPerson { get; set; }
-        public bool IncludeEmail { get; set; }
-        public bool IncludeDatum { get; set; }
-        public bool IncludeEntrance { get; set; }
-        //public bool Includewbeventinfo { get; set; }
-        public bool IncludeRutBokstav { get; set; }
-        public bool IncludeWebbcode { get; set; }
-        public bool IncludeScissorsLine { get; set; }
 
+        #region bara 0
+        public bool IncludeStrukturArtikel { get; set; }
+        #endregion
+
+        #region helt null
+        public bool IncludeDescription { get; set; }
+
+
+        public bool IncludeArtNotText { get; set; }
+
+        #endregion
+
+        #region helt tom, inte null
+        public bool IncludeRutBokstav { get; set; }
+        #endregion
+
+        public bool IncludeArtNr { get; set; } = true;
+        public bool IncludePrice { get; set; } = true;
+        public bool IncludeServiceFee { get; set; } = true;
+        public bool IncludeArtName { get; set; } = true;
+        public bool IncludeChairRow { get; set; } = true;
+        public bool IncludeChairNr { get; set; } = true;
+       
+
+        public bool IncludeEventDate { get; set; } = true;
+        public bool IncludeEventName { get; set; } = true;
+        public bool IncludeSubEventName { get; set; } = true;
+        public bool IncludeLogorad1 { get; set; } = true;
+        public bool IncludeLogorad2 { get; set; } = true;
+
+
+        public bool IncludeSection { get; set; } = true;
+        public bool IncludeBookingNr { get; set; } = true;
+        public bool IncludeWebBookingNr { get; set; } = true;
+        public bool IncludeFacilityName { get; set; } = true;
+        public bool IncludeAd { get; set; } = true;
+
+
+        public bool IncludeContactPerson { get; set; } = true;
+        public bool IncludeEmail { get; set; } = true;
+        public bool IncludeDatum { get; set; } = true;
+        public bool IncludeEntrance { get; set; } = true;
+
+
+        public bool IncludeWebbcode { get; set; } = true;
+        public bool IncludeScissorsLine { get; set; } = true;
         #endregion
 
         #region Position 
         // Properties for positioning elements on the ticket
-        public float? PBookIdPositionX { get; set; }
-        public float? PBookIdPositionY { get; set; }
-
         public float? ArtNrPositionX { get; set; }
         public float? ArtNrPositionY { get; set; }
 
@@ -62,9 +74,6 @@
 
         public float? ChairNrPositionX { get; set; }
         public float? ChairNrPositionY { get; set; }
-
-        public float? EventDateIdPositionX { get; set; }
-        public float? EventDateIdPositionY { get; set; }
 
         public float? EventDatePositionX { get; set; }
         public float? EventDatePositionY { get; set; }
@@ -84,8 +93,8 @@
         public float? LocationPositionX { get; set; }
         public float? LocationPositionY { get; set; }
 
-        public float? LocationNamePositionX { get; set; }
-        public float? LocationNamePositionY { get; set; }
+        public float? SectionPositionX { get; set; }
+        public float? SectionPositionY { get; set; }
 
         public float? BookingNrPositionX { get; set; }
         public float? BookingNrPositionY { get; set; }
@@ -120,20 +129,22 @@
         public float? EntrancePositionX { get; set; }
         public float? EntrancePositionY { get; set; }
 
-        //public float wbeventinfoPositionX { get; set; }
-        //public float wbeventinfoPositionY { get; set; }
-
         public float? RutBokstavPositionX { get; set; }
         public float? RutBokstavPositionY { get; set; }
 
         public float? WebbcodePositionX { get; set; }
         public float? WebbcodePositionY { get; set; }
-        #endregion
 
         public float? BarcodePositionX { get; set; }
         public float? BarcodePositionY { get; set; }
+        #endregion
 
         // Property to choose between QR code and Barcode
         public bool UseQRCode { get; set; }
+
+        public bool FlipBarcode { get; set; }
+
+        public List<CustomTextElement> CustomTextElements { get; set; } = new List<CustomTextElement>();
+        
     }
 }

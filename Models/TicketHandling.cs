@@ -3,6 +3,7 @@
     public class TicketHandling
     {
         public int Id { get; set; }
+        public int showEventInfo { get; set; }
 
         // Properties for customization options
         #region Include
@@ -144,7 +145,7 @@
 
         public bool FlipBarcode { get; set; }
 
-        public List<CustomTextElement> CustomTextElements { get; set; } = new List<CustomTextElement>();
+        public List<CustomTextElement>? CustomTextElements { get; set; } = new List<CustomTextElement>();
         
     }
 }

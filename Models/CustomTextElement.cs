@@ -9,7 +9,7 @@
         public string? Color { get; set; }
 
         // Constructor with parameters to quickly create a populated element
-        public CustomTextElement(string text, float x, float y, float fontSize, string color)
+        public CustomTextElement(string? text, float? x, float? y, float? fontSize, string? color)
         {
             Text = text;
             PositionX = x;

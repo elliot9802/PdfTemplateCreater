@@ -12,7 +12,7 @@ namespace Services
         public CreationService(IFileService fileService, IPdfTemplateService pdfUtility, ILogger<CreationService> logger)
         {
             _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
-            _pdfTemplateService = pdfUtility ?? throw new ArgumentNullException(nameof(fileService));
+            _pdfTemplateService = pdfUtility ?? throw new ArgumentNullException(nameof(pdfUtility));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 

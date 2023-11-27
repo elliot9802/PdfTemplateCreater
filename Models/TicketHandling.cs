@@ -2,9 +2,6 @@
 {
     public class TicketHandling
     {
-        public int Id { get; set; }
-        public int showEventInfo { get; set; }
-
         // Properties for customization options
         #region Include
 

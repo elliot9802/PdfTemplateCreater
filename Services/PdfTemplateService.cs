@@ -43,6 +43,7 @@ namespace Services
         {
             using var db = csMainDbContext.DbContext(_dbLogin);
             var query = db.Vy_ShowTickets.AsNoTracking();
+            var dbQuery = db.TicketTemplate.AsNoTracking();
 
             if (ticketId.HasValue)
             {
@@ -52,7 +53,7 @@ namespace Services
             else if (showEventInfo.HasValue)
             {
                 // If a ShowEventInfo value is provided, use it to filter the data.
-                query = query.Where(t => t.showEventInfo == showEventInfo.Value);
+                dbQuery = dbQuery.Where(t => t.ShowEventInfo == showEventInfo.Value);
             }
             else
             {
@@ -74,12 +75,25 @@ namespace Services
         {
             using (var db = csMainDbContext.DbContext(_dbLogin))
             {
-                var predefinedTemplate = await db.TicketTemplate
-                    .AsNoTracking()
-                    .Where(t => t.ShowEventInfo == showEventInfo)
-                    .FirstOrDefaultAsync();
+                var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => (int?)t.ShowEventInfo) ?? 3;
 
-                return predefinedTemplate.TicketsHandling; // This now contains TicketHandling data.
+                if (showEventInfo != maxShowEventInfo + 1)
+                {
+
+
+
+                    var predefinedTemplate = await db.TicketTemplate
+                        .AsNoTracking()
+                        .Where(t => t.ShowEventInfo == showEventInfo)
+                        .FirstOrDefaultAsync();
+
+                    return predefinedTemplate?.TicketsHandling; // This now contains TicketHandling data.
+                }
+                else
+                {
+                    _logger.LogWarning($"Must chose an item between 1-{maxShowEventInfo}");
+                    return null;
+                }
             }
         }
         #endregion
@@ -107,30 +121,22 @@ namespace Services
             using (var db = csMainDbContext.DbContext(_dbLogin))
             {
                 TicketHandling ticketHandling = null;
-                // Convert TicketsHandling to JSON before saving
-                if (_src.ShowEventInfo >= 1 && _src.ShowEventInfo <= 3)
-                {
-                    var predefinedTemplate = await db.TicketTemplate
-                        .FirstOrDefaultAsync(t => t.ShowEventInfo == _src.ShowEventInfo);
-                    if (predefinedTemplate != null)
-                    {
-                        ticketHandling = predefinedTemplate.TicketsHandling;
-                    }
-                }
-                else
-                {
-                    var ticketTemplateDbM = new TicketTemplateDbM
-                    {
-                        TicketTemplateId = _src.TicketTemplateId,
-                        TicketsHandlingJson = JsonConvert.SerializeObject(_src.TicketsHandling),
-                        ShowEventInfo = 4
-                    };
 
-                    db.TicketTemplate.Add(ticketTemplateDbM);
-                    await db.SaveChangesAsync();
-                    ticketHandling = ticketTemplateDbM.TicketsHandling;
+                var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => (int?)t.ShowEventInfo) ?? 0;
 
-                }
+                _src.ShowEventInfo = maxShowEventInfo + 1;
+
+                var ticketTemplateDbM = new TicketTemplateDbM
+                {
+                    TicketTemplateId = _src.TicketTemplateId,
+                    TicketsHandlingJson = JsonConvert.SerializeObject(_src.TicketsHandling),
+                    ShowEventInfo = _src.ShowEventInfo
+                };
+
+                db.TicketTemplate.Add(ticketTemplateDbM);
+                await db.SaveChangesAsync();
+                ticketHandling = ticketTemplateDbM.TicketsHandling;
+
                 return ticketHandling;
             }
         }

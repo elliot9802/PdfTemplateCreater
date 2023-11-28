@@ -25,7 +25,7 @@ namespace AppPdfTemplateWApi.Controllers
         }
 
         //POST: api/pdftemplate/GetPredefinedTemplate/{showEventInfo}
-        [HttpPost("GetPredefinedTemplate/{showEventInfo}")]
+        [HttpPost("GetPredefinedTemplate")]
         public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
         {
             string tempBgFilePath = Path.GetTempFileName();
@@ -86,21 +86,27 @@ namespace AppPdfTemplateWApi.Controllers
         public async Task<IActionResult> CreateTemplate(
         [FromForm] TicketHandling ticketHandling,
         IFormFile bgFile,
-        [FromForm] string customTextElementsJson, // Accept JSON string
+        [FromForm] string? customTextElementsJson, // Accept JSON string
         int ticketId,
         bool saveToDb = false)
         {
-            // Manually deserialize the JSON string to List<CustomTextElement>
-            //if (!string.IsNullOrEmpty(customTextElementsJson))
-            //{
-            //    ticketHandling.CustomTextElements =
-            //        JsonConvert.DeserializeObject<List<CustomTextElement>>(customTextElementsJson);
-            //    ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
-            //}
             if (!string.IsNullOrEmpty(customTextElementsJson))
             {
-                var customTextElements = JsonConvert.DeserializeObject<List<CustomTextElement>>(customTextElementsJson);
-                ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
+                try
+                {
+                    var customTextElements = JsonConvert.DeserializeObject<List<CustomTextElement>>(customTextElementsJson);
+                    ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
+                }
+                catch (JsonSerializationException ex)
+                {
+                    _logger.LogError(ex, "Error deserializing customTextElementsJson");
+                    return BadRequest("Invalid format for custom text elements.");
+                }
+            }
+            else
+            {
+                // If customTextElementsJson is null or empty, initialize with an empty list
+                ticketHandling.CustomTextElements = new List<CustomTextElement>();
             }
 
             var tempBgFilePath = Path.GetTempFileName();

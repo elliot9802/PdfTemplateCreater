@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web.UI;
 
@@ -29,7 +30,6 @@ namespace FrontEndEditor
                 pnlCreateNewLayout.Visible = true;
                 pnlPredefinedLayout.Visible = false;
                 litScript.Text = " ";
-
             }
             else if (ddlLayoutChoice.SelectedValue == "ExistingLayout")
             {
@@ -79,6 +79,40 @@ namespace FrontEndEditor
                 litScript.Text = " ";
             }
         }
+
+        protected async void btnGetExistingTemplate_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    // Update with your API URL
+                    string apiUrl = "https://localhost:7104/api/PdfTemplate/GetTicketTemplate";
+                    var response = await client.GetAsync(apiUrl);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var data = await response.Content.ReadAsStringAsync();
+                        var showEventInfos = JsonConvert.DeserializeObject<List<int>>(data);
+
+                        var htmlBuilder = new StringBuilder();
+                        htmlBuilder.Append("<ul>");
+                        foreach (var info in showEventInfos)
+                        {
+                            htmlBuilder.Append($"<li>Existing ShowEventInfo: {info}</li>");
+                        }
+                        htmlBuilder.Append("</ul>");
+
+                        litScript.Text = htmlBuilder.ToString();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                litScript.Text = $"Error: {ex.Message}";
+            }
+        }
+
 
         protected async void btnGetPredefinedTemplate_Click(object sender, EventArgs e)
         {

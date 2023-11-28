@@ -209,6 +209,8 @@
         </script>
         <asp:FileUpload ID="bgFileUpload" runat="server" accept=".png,.jpg" />
         <asp:Button ID="btnGetPredefinedTemplate" runat="server" Text="Get Predefined Template" OnClick="btnGetPredefinedTemplate_Click" />
+        <asp:Button ID="btnGetExistingTemplate" runat="server" Text="Get a list of existing Templates" OnClick="btnGetExistingTemplate_Click" />
+
     </asp:Panel>
     <asp:Literal ID="litScript" runat="server" />
     <script src="Scripts/main.js" type="text/javascript"></script>

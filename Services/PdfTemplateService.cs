@@ -11,6 +11,7 @@ using Syncfusion.Pdf.Barcode;
 using Syncfusion.Pdf.Graphics;
 using System.Globalization;
 using System.Net;
+using System.Net.Http;
 using System.Text.RegularExpressions;
 
 namespace Services
@@ -243,7 +244,7 @@ namespace Services
 
             DrawTextIfCondition(graphics, ticketHandling.IncludePrice, ticketData.Pris, origin, scale, ticketHandling.PricePositionX, ticketHandling.PricePositionY, regularFont);
 
-            DrawTextIfCondition(graphics, ticketHandling.IncludeChairNr, ticketData.ArtikelNr, origin, scale, ticketHandling.ArtNrPositionX, ticketHandling.ArtNrPositionY, regularFont);
+            DrawTextIfCondition(graphics, ticketHandling.IncludeArtNr, ticketData.ArtikelNr, origin, scale, ticketHandling.ArtNrPositionX, ticketHandling.ArtNrPositionY, regularFont);
 
             DrawTextIfCondition(graphics, ticketHandling.IncludeArtName, ticketData.Artikelnamn, origin, scale, ticketHandling.ArtNamePositionX, ticketHandling.ArtNamePositionY, regularFont);
 
@@ -329,7 +330,6 @@ namespace Services
                 graphics.DrawString(customTextElement.Text, customFont, customBrush, position);
             }
         }
-
 
         private void DrawScissorsLine(PdfGraphics graphics, PointF origin, float scale, TicketHandling ticketHandling)
         {
@@ -422,7 +422,7 @@ namespace Services
             {
                 // Draw QR code
                 PdfQRBarcode qrCode = new PdfQRBarcode();
-                qrCode.Text = ticketData.webbkod;
+                qrCode.Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod;
                 qrCode.Size = new SizeF(450 * scale, 205 * scale);
                 qrCode.Draw(page.Graphics, barcodePosition);
             }
@@ -430,7 +430,7 @@ namespace Services
             {
                 // Draw barcode
                 PdfCode39Barcode barcode = new PdfCode39Barcode();
-                barcode.Text = ticketData.webbkod;
+                barcode.Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod;
                 barcode.Size = new SizeF(270 * scale, 90 * scale);
 
                 if (ticketHandling.FlipBarcode)

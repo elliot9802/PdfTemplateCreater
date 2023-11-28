@@ -27,26 +27,13 @@ namespace DbModels
         public override int ShowEventInfo { get; set; }
 
         #region constructors
-        //public TicketTemplateDbM UpdateFromDTO(TemplateCUdto org)
-        //{
-        //    TicketsHandling = org.TicketHandling;
-        //    ShowEventInfo = org.ShowEventInfo;
-
-        //    return this;
-        //}
         public TicketTemplateDbM() : base() { }
 
 
         // Constructor to create a TicketTemplateDbM from a TemplateCUdto
-        public TicketTemplateDbM(TemplateCUdto org) : base(org) // Call the base constructor
+        public TicketTemplateDbM(TemplateCUdto org) : base(org)
         {
             TicketTemplateId = Guid.NewGuid();
-            // Assuming the base constructor has already populated the fields accordingly
-            if (org.TicketsHandling != null)
-            {
-                // Ensure CustomTextElements is properly initialized and included
-                org.TicketsHandling.CustomTextElements = org.TicketsHandling.CustomTextElements ?? new List<CustomTextElement>();
-            }
             TicketsHandlingJson = JsonConvert.SerializeObject(org.TicketsHandling); // Serialize the TicketHandling object to JSON
         }
 

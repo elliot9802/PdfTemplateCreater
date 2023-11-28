@@ -40,6 +40,16 @@ namespace Services
         #endregion
 
         #region database methods
+        public async Task<List<int>> ReadTemplatesAsync()
+        {
+            using (var db = csMainDbContext.DbContext(_dbLogin))
+            {
+                var _list = await db.TicketTemplate.ToListAsync();
+                List<int> showEventInfoList = _list.Select(template => template.ShowEventInfo).ToList();
+                return showEventInfoList;
+            }
+        }
+
         public async Task<TicketsDataDto> GetTicketDataAsync(int? ticketId, int? showEventInfo)
         {
             using var db = csMainDbContext.DbContext(_dbLogin);
@@ -80,9 +90,6 @@ namespace Services
 
                 if (showEventInfo != maxShowEventInfo + 1)
                 {
-
-
-
                     var predefinedTemplate = await db.TicketTemplate
                         .AsNoTracking()
                         .Where(t => t.ShowEventInfo == showEventInfo)

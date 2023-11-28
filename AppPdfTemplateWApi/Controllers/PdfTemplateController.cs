@@ -195,6 +195,28 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
+        //GET: api/pdftemplate/GetTicketTemplate
+        [HttpGet()]
+        [ProducesResponseType(200, Type = typeof(List<int>))]
+        [ProducesResponseType(400, Type = typeof(string))]
+        public async Task<IActionResult> GetTicketTemplate()
+        {
+            try
+            {
+                var showEventInfoList = await _pdfTemplateService.ReadTemplatesAsync();
+                return Ok(showEventInfoList);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.InnerException?.Message);
+            }
+        }
+
+
         //[HttpPost()]
         //[ActionName("createPdf")]
         //[ProducesResponseType(200, Type = typeof(string))]

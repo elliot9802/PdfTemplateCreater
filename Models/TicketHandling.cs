@@ -11,44 +11,29 @@
 
         #region helt null
         public bool IncludeDescription { get; set; }
-
-
         public bool IncludeArtNotText { get; set; }
-
         #endregion
-
-        #region helt tom, inte null
         public bool IncludeRutBokstav { get; set; }
-        #endregion
-
         public bool IncludeArtNr { get; set; } = true;
         public bool IncludePrice { get; set; } = true;
         public bool IncludeServiceFee { get; set; } = true;
         public bool IncludeArtName { get; set; } = true;
         public bool IncludeChairRow { get; set; } = true;
         public bool IncludeChairNr { get; set; } = true;
-       
-
         public bool IncludeEventDate { get; set; } = true;
         public bool IncludeEventName { get; set; } = true;
         public bool IncludeSubEventName { get; set; } = true;
         public bool IncludeLogorad1 { get; set; } = true;
         public bool IncludeLogorad2 { get; set; } = true;
-
-
         public bool IncludeSection { get; set; } = true;
         public bool IncludeBookingNr { get; set; } = true;
         public bool IncludeWebBookingNr { get; set; } = true;
         public bool IncludeFacilityName { get; set; } = true;
         public bool IncludeAd { get; set; } = true;
-
-
         public bool IncludeContactPerson { get; set; } = true;
         public bool IncludeEmail { get; set; } = true;
         public bool IncludeDatum { get; set; } = true;
         public bool IncludeEntrance { get; set; } = true;
-
-
         public bool IncludeWebbcode { get; set; } = true;
         public bool IncludeScissorsLine { get; set; } = true;
         #endregion
@@ -139,10 +124,7 @@
 
         // Property to choose between QR code and Barcode
         public bool UseQRCode { get; set; }
-
         public bool FlipBarcode { get; set; }
-
         public List<CustomTextElement>? CustomTextElements { get; set; } = new List<CustomTextElement>();
-        
     }
 }

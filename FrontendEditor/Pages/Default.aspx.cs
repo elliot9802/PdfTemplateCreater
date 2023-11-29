@@ -58,6 +58,7 @@ namespace FrontEndEditor
                 pnlPredefinedLayout.Visible = true;
                 txtShowEventInfo.Visible = true;
                 txtTicketId.Visible = true;
+                bgFileUpload.Visible = true;
                 btnGetPredefinedTemplate.Visible = true;
                 litScript.Text = " ";
             }
@@ -66,6 +67,7 @@ namespace FrontEndEditor
                 pnlPredefinedLayout.Visible = true;
                 txtShowEventInfo.Visible = false;
                 txtTicketId.Visible = true;
+                bgFileUpload.Visible = true;
                 btnGetPredefinedTemplate.Visible = true;
                 litScript.Text = " ";
             }
@@ -75,6 +77,7 @@ namespace FrontEndEditor
                 pnlCreateNewLayout.Visible = false;
                 txtTicketId.Visible = false;
                 txtShowEventInfo.Visible = false;
+                bgFileUpload.Visible = false;
                 btnGetPredefinedTemplate.Visible = false;
                 litScript.Text = " ";
             }
@@ -112,7 +115,6 @@ namespace FrontEndEditor
                 litScript.Text = $"Error: {ex.Message}";
             }
         }
-
 
         protected async void btnGetPredefinedTemplate_Click(object sender, EventArgs e)
         {
@@ -205,7 +207,7 @@ namespace FrontEndEditor
                         content.Add(new StringContent(value), property.Name);
                     }
                 }
-                string customJson = await GetCustomJson();
+                string customJson = GetCustomJson();
 
                 // Ensure that customJson is properly serialized and added with the correct content type
                 content.Add(new StringContent(customJson, System.Text.Encoding.UTF8, "application/json"), "customTextElementsJson");
@@ -265,7 +267,7 @@ namespace FrontEndEditor
                     content.Add(new StringContent(value), property.Name);
                 }
             }
-            string customJson = await GetCustomJson();
+            string customJson = GetCustomJson();
 
             // Ensure that customJson is properly serialized and added with the correct content type
             content.Add(new StringContent(customJson, System.Text.Encoding.UTF8, "application/json"), "customTextElementsJson");
@@ -326,60 +328,60 @@ namespace FrontEndEditor
                 IncludeScissorsLine = chkIncludeScissorsLine.Checked,
 
                 //// Position properties
-                ArtNrPositionX = float.Parse(txtArtNrPositionX.Text),
-                ArtNrPositionY = float.Parse(txtArtNrPositionY.Text),
-                PricePositionX = float.Parse(txtPricePositionX.Text),
-                PricePositionY = float.Parse(txtPricePositionY.Text),
-                ServiceFeePositionX = float.Parse(txtServiceFeePositionX.Text),
-                ServiceFeePositionY = float.Parse(txtServiceFeePositionY.Text),
-                ArtNamePositionX = float.Parse(txtArtNamePositionX.Text),
-                ArtNamePositionY = float.Parse(txtArtNamePositionY.Text),
-                ChairRowPositionX = float.Parse(txtChairRowPositionX.Text),
-                ChairRowPositionY = float.Parse(txtChairRowPositionY.Text),
-                ChairNrPositionX = float.Parse(txtChairNrPositionX.Text),
-                ChairNrPositionY = float.Parse(txtChairNrPositionY.Text),
-                EventDatePositionX = float.Parse(txtEventDatePositionX.Text),
-                EventDatePositionY = float.Parse(txtEventDatePositionY.Text),
-                EventNamePositionX = float.Parse(txtEventNamePositionX.Text),
-                EventNamePositionY = float.Parse(txtEventNamePositionY.Text),
-                SubEventNamePositionX = float.Parse(txtSubEventNamePositionX.Text),
-                SubEventNamePositionY = float.Parse(txtSubEventNamePositionY.Text),
-                Logorad1PositionX = float.Parse(txtLogorad1PositionX.Text),
-                Logorad1PositionY = float.Parse(txtLogorad1PositionY.Text),
-                Logorad2PositionX = float.Parse(txtLogorad2PositionX.Text),
-                Logorad2PositionY = float.Parse(txtLogorad2PositionY.Text),
-                LocationPositionX = float.Parse(txtLocationPositionX.Text),
-                LocationPositionY = float.Parse(txtLocationPositionY.Text),
-                SectionPositionX = float.Parse(txtSectionPositionX.Text),
-                SectionPositionY = float.Parse(txtSectionPositionY.Text),
-                BookingNrPositionX = float.Parse(txtBookingNrPositionX.Text),
-                BookingNrPositionY = float.Parse(txtBookingNrPositionY.Text),
-                WebBookingNumberPositionX = float.Parse(txtWebBookingNumberPositionX.Text),
-                WebBookingNumberPositionY = float.Parse(txtWebBookingNumberPositionY.Text),
-                FacilityNamePositionX = float.Parse(txtFacilityNamePositionX.Text),
-                FacilityNamePositionY = float.Parse(txtFacilityNamePositionY.Text),
-                AdPositionX = float.Parse(txtAdPositionX.Text),
-                AdPositionY = float.Parse(txtAdPositionY.Text),
-                StrukturArtikelPositionX = float.Parse(txtStrukturArtikelPositionX.Text),
-                StrukturArtikelPositionY = float.Parse(txtStrukturArtikelPositionY.Text),
-                DescriptionPositionX = float.Parse(txtDescriptionPositionX.Text),
-                DescriptionPositionY = float.Parse(txtDescriptionPositionY.Text),
-                ArtNotTextPositionX = float.Parse(txtArtNotTextPositionX.Text),
-                ArtNotTextPositionY = float.Parse(txtArtNotTextPositionY.Text),
-                NamePositionX = float.Parse(txtNamePositionX.Text),
-                NamePositionY = float.Parse(txtNamePositionY.Text),
-                EmailPositionX = float.Parse(txtEmailPositionX.Text),
-                EmailPositionY = float.Parse(txtEmailPositionY.Text),
-                DatumPositionX = float.Parse(txtDatumPositionX.Text),
-                DatumPositionY = float.Parse(txtDatumPositionY.Text),
-                EntrancePositionX = float.Parse(txtEntrancePositionX.Text),
-                EntrancePositionY = float.Parse(txtEntrancePositionY.Text),
-                RutBokstavPositionX = float.Parse(txtRutBokstavPositionX.Text),
-                RutBokstavPositionY = float.Parse(txtRutBokstavPositionY.Text),
-                WebbcodePositionX = float.Parse(txtWebbcodePositionX.Text),
-                WebbcodePositionY = float.Parse(txtWebbcodePositionY.Text),
-                BarcodePositionX = float.Parse(txtBarcodePositionX.Text),
-                BarcodePositionY = float.Parse(txtBarcodePositionY.Text),
+                ArtNrPositionX = TryParseFloat(txtArtNrPositionX.Text),
+                ArtNrPositionY = TryParseFloat(txtArtNrPositionY.Text),
+                PricePositionX = TryParseFloat(txtPricePositionX.Text),
+                PricePositionY = TryParseFloat(txtPricePositionY.Text),
+                ServiceFeePositionX = TryParseFloat(txtServiceFeePositionX.Text),
+                ServiceFeePositionY = TryParseFloat(txtServiceFeePositionY.Text),
+                ArtNamePositionX = TryParseFloat(txtArtNamePositionX.Text),
+                ArtNamePositionY = TryParseFloat(txtArtNamePositionY.Text),
+                ChairRowPositionX = TryParseFloat(txtChairRowPositionX.Text),
+                ChairRowPositionY = TryParseFloat(txtChairRowPositionY.Text),
+                ChairNrPositionX = TryParseFloat(txtChairNrPositionX.Text),
+                ChairNrPositionY = TryParseFloat(txtChairNrPositionY.Text),
+                EventDatePositionX = TryParseFloat(txtEventDatePositionX.Text),
+                EventDatePositionY = TryParseFloat(txtEventDatePositionY.Text),
+                EventNamePositionX = TryParseFloat(txtEventNamePositionX.Text),
+                EventNamePositionY = TryParseFloat(txtEventNamePositionY.Text),
+                SubEventNamePositionX = TryParseFloat(txtSubEventNamePositionX.Text),
+                SubEventNamePositionY = TryParseFloat(txtSubEventNamePositionY.Text),
+                Logorad1PositionX = TryParseFloat(txtLogorad1PositionX.Text),
+                Logorad1PositionY = TryParseFloat(txtLogorad1PositionY.Text),
+                Logorad2PositionX = TryParseFloat(txtLogorad2PositionX.Text),
+                Logorad2PositionY = TryParseFloat(txtLogorad2PositionY.Text),
+                LocationPositionX = TryParseFloat(txtLocationPositionX.Text),
+                LocationPositionY = TryParseFloat(txtLocationPositionY.Text),
+                SectionPositionX = TryParseFloat(txtSectionPositionX.Text),
+                SectionPositionY = TryParseFloat(txtSectionPositionY.Text),
+                BookingNrPositionX = TryParseFloat(txtBookingNrPositionX.Text),
+                BookingNrPositionY = TryParseFloat(txtBookingNrPositionY.Text),
+                WebBookingNumberPositionX = TryParseFloat(txtWebBookingNumberPositionX.Text),
+                WebBookingNumberPositionY = TryParseFloat(txtWebBookingNumberPositionY.Text),
+                FacilityNamePositionX = TryParseFloat(txtFacilityNamePositionX.Text),
+                FacilityNamePositionY = TryParseFloat(txtFacilityNamePositionY.Text),
+                AdPositionX = TryParseFloat(txtAdPositionX.Text),
+                AdPositionY = TryParseFloat(txtAdPositionY.Text),
+                StrukturArtikelPositionX = TryParseFloat(txtStrukturArtikelPositionX.Text),
+                StrukturArtikelPositionY = TryParseFloat(txtStrukturArtikelPositionY.Text),
+                DescriptionPositionX = TryParseFloat(txtDescriptionPositionX.Text),
+                DescriptionPositionY = TryParseFloat(txtDescriptionPositionY.Text),
+                ArtNotTextPositionX = TryParseFloat(txtArtNotTextPositionX.Text),
+                ArtNotTextPositionY = TryParseFloat(txtArtNotTextPositionY.Text),
+                NamePositionX = TryParseFloat(txtNamePositionX.Text),
+                NamePositionY = TryParseFloat(txtNamePositionY.Text),
+                EmailPositionX = TryParseFloat(txtEmailPositionX.Text),
+                EmailPositionY = TryParseFloat(txtEmailPositionY.Text),
+                DatumPositionX = TryParseFloat(txtDatumPositionX.Text),
+                DatumPositionY = TryParseFloat(txtDatumPositionY.Text),
+                EntrancePositionX = TryParseFloat(txtEntrancePositionX.Text),
+                EntrancePositionY = TryParseFloat(txtEntrancePositionY.Text),
+                RutBokstavPositionX = TryParseFloat(txtRutBokstavPositionX.Text),
+                RutBokstavPositionY = TryParseFloat(txtRutBokstavPositionY.Text),
+                WebbcodePositionX = TryParseFloat(txtWebbcodePositionX.Text),
+                WebbcodePositionY = TryParseFloat(txtWebbcodePositionY.Text),
+                BarcodePositionX = TryParseFloat(txtBarcodePositionX.Text),
+                BarcodePositionY = TryParseFloat(txtBarcodePositionY.Text),
 
                 // Other properties
                 UseQRCode = chkUseQRCode.Checked,
@@ -387,18 +389,20 @@ namespace FrontEndEditor
             };
             return ticketHandling;
         }
-        private async Task<string> GetCustomJson()
+
+        private float? TryParseFloat(string input)
         {
-            var customTextElements = GetCustomTextElements();
-            var jsonCustomTextElements = customTextElements;
-
-            var ticketHandling = new
+            if (float.TryParse(input, out float result))
             {
-                CustomTextElementsJson = jsonCustomTextElements // Implement this method based on your UI and requirements
-            };
+                return result;
+            }
+            return null;
+        }
 
-            return JsonConvert.SerializeObject(ticketHandling.CustomTextElementsJson);
-
+        private string GetCustomJson()
+        {
+            var customTextElements = GetCustomTextElements() ?? new List<CustomTextElement>();
+            return JsonConvert.SerializeObject(customTextElements);
         }
 
         public class TicketHandling
@@ -410,36 +414,29 @@ namespace FrontEndEditor
             #region helt tom, inte null
             public bool IncludeRutBokstav { get; set; }
             #endregion
-            public bool IncludeArtNr { get; set; } = true;
-            public bool IncludePrice { get; set; } = true;
-            public bool IncludeServiceFee { get; set; } = true;
-            public bool IncludeArtName { get; set; } = true;
-            public bool IncludeChairRow { get; set; } = true;
-            public bool IncludeChairNr { get; set; } = true;
+            public bool IncludeArtNr { get; set; }
+            public bool IncludePrice { get; set; }
+            public bool IncludeServiceFee { get; set; }
+            public bool IncludeArtName { get; set; }
+            public bool IncludeChairRow { get; set; }
+            public bool IncludeChairNr { get; set; }
+            public bool IncludeEventDate { get; set; }
+            public bool IncludeEventName { get; set; }
+            public bool IncludeSubEventName { get; set; }
+            public bool IncludeLogorad1 { get; set; }
+            public bool IncludeLogorad2 { get; set; }
+            public bool IncludeSection { get; set; }
+            public bool IncludeBookingNr { get; set; }
+            public bool IncludeWebBookingNr { get; set; }
+            public bool IncludeFacilityName { get; set; }
+            public bool IncludeAd { get; set; }
 
-
-            public bool IncludeEventDate { get; set; } = true;
-            public bool IncludeEventName { get; set; } = true;
-            public bool IncludeSubEventName { get; set; } = true;
-            public bool IncludeLogorad1 { get; set; } = true;
-            public bool IncludeLogorad2 { get; set; } = true;
-
-
-            public bool IncludeSection { get; set; } = true;
-            public bool IncludeBookingNr { get; set; } = true;
-            public bool IncludeWebBookingNr { get; set; } = true;
-            public bool IncludeFacilityName { get; set; } = true;
-            public bool IncludeAd { get; set; } = true;
-
-
-            public bool IncludeContactPerson { get; set; } = true;
-            public bool IncludeEmail { get; set; } = true;
-            public bool IncludeDatum { get; set; } = true;
-            public bool IncludeEntrance { get; set; } = true;
-
-
-            public bool IncludeWebbcode { get; set; } = true;
-            public bool IncludeScissorsLine { get; set; } = true;
+            public bool IncludeContactPerson { get; set; }
+            public bool IncludeEmail { get; set; }
+            public bool IncludeDatum { get; set; }
+            public bool IncludeEntrance { get; set; }
+            public bool IncludeWebbcode { get; set; }
+            public bool IncludeScissorsLine { get; set; }
             #region Position 
             // Properties for positioning elements on the ticket
             public float? ArtNrPositionX { get; set; }
@@ -537,16 +534,12 @@ namespace FrontEndEditor
         }
         public class CustomTextElement
         {
-            public string Text { get; set; } // The text content of the element
-            public float PositionX { get; set; } // X-coordinate position on the ticket
-            public float PositionY { get; set; } // Y-coordinate position on the ticket
-            public float FontSize { get; set; } = 10; // Default Font Size
+            public string Text { get; set; }
+            public float PositionX { get; set; } 
+            public float PositionY { get; set; }
+            public float FontSize { get; set; } = 10;
             public string Color { get; set; }
 
-            public CustomTextElement()
-            {
-            }
-            // Constructor with parameters to quickly create a populated element
             public CustomTextElement(string text, float x, float y, float fontSize, string color)
             {
                 Text = text;
@@ -585,4 +578,3 @@ namespace FrontEndEditor
         }
     }
 }
-

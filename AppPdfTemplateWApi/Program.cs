@@ -8,7 +8,6 @@ builder.Services.AddLogging();
 builder.Services.AddControllers();
 builder.Services.AddTransient<IPdfTemplateService, PdfTemplateService>();
 builder.Services.AddTransient<IFileService, FileService>();
-builder.Services.AddTransient<ICreationService, CreationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -27,7 +26,6 @@ builder.Services.AddCors(options =>
 /* 
 CORS allows specific external origins access to your API via browsers. 
 */
-
 
 var app = builder.Build();
 

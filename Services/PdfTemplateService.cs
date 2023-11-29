@@ -10,8 +10,6 @@ using Syncfusion.Pdf;
 using Syncfusion.Pdf.Barcode;
 using Syncfusion.Pdf.Graphics;
 using System.Globalization;
-using System.Net;
-using System.Net.Http;
 using System.Text.RegularExpressions;
 
 namespace Services
@@ -23,7 +21,6 @@ namespace Services
         private readonly string _dbLogin;
         private readonly string _backgroundImagePath;
         private readonly string _scissorsLineImagePath;
-        //private readonly string _adImagePath;
 
         public PdfTemplateService(ILogger<PdfTemplateService> logger)
         {
@@ -35,90 +32,96 @@ namespace Services
             var imagePaths = AppConfig.GetImagePaths();
             _backgroundImagePath = imagePaths.BackgroundImagePath ?? throw new KeyNotFoundException("BackgroundImagePath configuration is missing.");
             _scissorsLineImagePath = imagePaths.ScissorsLineImagePath ?? throw new KeyNotFoundException("ScissorsLineImagePath configuration is missing.");
-            //_adImagePath = imagePaths.AdImagePath ?? throw new KeyNotFoundException("AdImagePath configuration is missing.");
         }
         #endregion
 
         #region database methods
         public async Task<List<int>> ReadTemplatesAsync()
         {
-            using (var db = csMainDbContext.DbContext(_dbLogin))
+            try
             {
-                var _list = await db.TicketTemplate.ToListAsync();
-                List<int> showEventInfoList = _list.Select(template => template.ShowEventInfo).ToList();
-                return showEventInfoList;
+                using (var db = csMainDbContext.Create(_dbLogin))
+                {
+                    var templates = await db.TicketTemplate.Select(t => t.ShowEventInfo).ToListAsync();
+                    _logger.LogInformation($"Retrieved {templates.Count} templates");
+                    return templates;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in ReadTemplatesAsync: {ex.Message}");
+                throw;
             }
         }
 
         public async Task<TicketsDataDto> GetTicketDataAsync(int? ticketId, int? showEventInfo)
         {
-            using var db = csMainDbContext.DbContext(_dbLogin);
-            var query = db.Vy_ShowTickets.AsNoTracking();
-            var dbQuery = db.TicketTemplate.AsNoTracking();
+            try
+            {
+                using var db = csMainDbContext.Create(_dbLogin);
+                var query = db.Vy_ShowTickets.AsNoTracking();
+                var dbQuery = db.TicketTemplate.AsNoTracking();
 
-            if (ticketId.HasValue)
-            {
-                // If a specific ticket ID is provided, use it to filter the data.
-                query = query.Where(t => t.platsbokad_id == ticketId.Value);
-            }
-            else if (showEventInfo.HasValue)
-            {
-                // If a ShowEventInfo value is provided, use it to filter the data.
-                dbQuery = dbQuery.Where(t => t.ShowEventInfo == showEventInfo.Value);
-            }
-            else
-            {
-                // If neither is provided, log a warning and return null.
-                _logger.LogWarning("GetTicketDataAsync requires either a ticketId or showEventInfo to filter the data.");
-                return null;
-            }
+                if (ticketId.HasValue)
+                    query = query.Where(t => t.platsbokad_id == ticketId.Value);
+                else if (showEventInfo.HasValue)
+                    dbQuery = dbQuery.Where(t => t.ShowEventInfo == showEventInfo.Value);
+                else
+                    _logger.LogWarning("GetTicketDataAsync requires either a ticketId or showEventInfo to filter the data.");
 
-            // Execute the query and return the first matching record.
-            var templateData = await query.FirstOrDefaultAsync();
-            if (templateData == null)
-            {
-                _logger.LogWarning("No matching ticket data found.");
+                var templateData = await query.FirstOrDefaultAsync();
+                if (templateData == null)
+                    _logger.LogWarning("No matching ticket data found.");
+                return templateData;
             }
-            return templateData;
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in GetTicketDataAsync: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<TicketHandling> GetPredefinedTicketHandlingAsync(int showEventInfo)
         {
-            using (var db = csMainDbContext.DbContext(_dbLogin))
+            try
             {
-                var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => (int?)t.ShowEventInfo) ?? 3;
+                using var db = csMainDbContext.Create(_dbLogin);
+                var predefinedTemplate = await db.TicketTemplate
+                                                 .AsNoTracking()
+                                                 .FirstOrDefaultAsync(t => t.ShowEventInfo == showEventInfo);
 
-                if (showEventInfo != maxShowEventInfo + 1)
+                if (predefinedTemplate == null)
                 {
-                    var predefinedTemplate = await db.TicketTemplate
-                        .AsNoTracking()
-                        .Where(t => t.ShowEventInfo == showEventInfo)
-                        .FirstOrDefaultAsync();
-
-                    return predefinedTemplate?.TicketsHandling; // This now contains TicketHandling data.
-                }
-                else
-                {
-                    _logger.LogWarning($"Must chose an item between 1-{maxShowEventInfo}");
+                    _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
                     return null;
                 }
+                
+                return predefinedTemplate.TicketsHandling; // This now contains TicketHandling data.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in GetPredefinedTicketHandlingAsync: {ex.Message}");
+                throw;
             }
         }
         #endregion
 
         #region Creating Pdf methods
         #region database methods
+        public string GetTemporaryPdfFilePath()
+        {
+            string tempDirectory = Path.GetTempPath();
+            string fileName = Guid.NewGuid().ToString("N") + ".pdf";
+            return Path.Combine(tempDirectory, fileName);
+        }
+
         public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
         {
-            // Instantiate a new TemplateCUdto object
             var templateCUdto = new TemplateCUdto
             {
-                //TicketTemplateId = Guid.NewGuid(), // Assign a new Guid or obtain it from somewhere else if updating
-                TicketsHandling = ticketHandling, // Directly assign the TicketHandling object
-                                                  // The TicketHandlingJson is redundant if you're directly assigning the object above, unless you need it for some other operation
-                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling), // Serialize the TicketHandling to JSON
-                                                                                  // The ShowEventInfo property's value will depend on whether the layout is predefined or custom
-                                                                                  //ShowEventInfo = IsPredefinedLayout(ticketHandling) ? DeterminePredefinedLayout(ticketHandling) : 4
+                TicketsHandling = ticketHandling, 
+                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling), 
             };
 
             return templateCUdto;
@@ -126,78 +129,96 @@ namespace Services
 
         public async Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src)
         {
-            using (var db = csMainDbContext.DbContext(_dbLogin))
+            try
             {
-                TicketHandling ticketHandling = null;
+                using var db = csMainDbContext.Create(_dbLogin);
 
+                // Determine the maximum ShowEventInfo in the database and increment it for the new template
                 var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => (int?)t.ShowEventInfo) ?? 0;
-
                 _src.ShowEventInfo = maxShowEventInfo + 1;
 
-                var ticketTemplateDbM = new TicketTemplateDbM
+                // Create a new TicketTemplateDbM object with the incremented ShowEventInfo
+                var newTicketTemplate = new TicketTemplateDbM(_src)
                 {
-                    TicketTemplateId = _src.TicketTemplateId,
-                    TicketsHandlingJson = JsonConvert.SerializeObject(_src.TicketsHandling),
                     ShowEventInfo = _src.ShowEventInfo
                 };
 
-                db.TicketTemplate.Add(ticketTemplateDbM);
+                await db.TicketTemplate.AddAsync(newTicketTemplate);
                 await db.SaveChangesAsync();
-                ticketHandling = ticketTemplateDbM.TicketsHandling;
 
-                return ticketHandling;
+                _logger.LogInformation($"New template created with ShowEventInfo {newTicketTemplate.ShowEventInfo}");
+                return newTicketTemplate.TicketsHandling;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in CreateTemplateAsync: {ex.Message}");
+                throw;
             }
         }
 
         public async Task<ITicketTemplate> DeleteTemplateAsync(Guid id)
         {
-            using (var db = csMainDbContext.DbContext(_dbLogin))
+            try
             {
-                var tt = await db.TicketTemplate
-                    .FirstOrDefaultAsync(tt => tt.TicketTemplateId == id);
-                if (tt == null)
+                using var db = csMainDbContext.Create(_dbLogin);
+                var templateToDelete = await db.TicketTemplate.FindAsync(id);
+
+                if (templateToDelete == null)
                 {
+                    _logger.LogWarning($"Template with ID {id} not found.");
                     throw new ArgumentException($"Item with id {id} does not exist");
                 }
-                else
-                {
-                    db.TicketTemplate.Remove(tt);
 
-                    await db.SaveChangesAsync();
+                db.TicketTemplate.Remove(templateToDelete);
+                await db.SaveChangesAsync();
 
-                    return tt;
-                }
+                _logger.LogInformation($"Template with ID {id} has been deleted.");
+                return templateToDelete;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in DeleteTemplateAsync: {ex.Message}");
+                throw;
             }
         }
         #endregion
-        public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketHandling, string backgroundImagePath = null)
+        public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketHandling, string? backgroundImagePath = null)
         {
-            using PdfDocument document = new PdfDocument();
-            PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
-            PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
-            PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9);
+            try
+            {
+                using PdfDocument document = new PdfDocument();
+                PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
+                PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
+                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9);
 
-            PdfPage page = document.Pages.Add();
+                PdfPage page = document.Pages.Add();
+                backgroundImagePath ??= _backgroundImagePath;
+                await DrawPageContent(page, backgroundImagePath, ticketData, ticketHandling, regularFont, boldFont, customFont);
 
-            backgroundImagePath ??= _backgroundImagePath;
-            DrawPageContent(page, backgroundImagePath, ticketData, ticketHandling, regularFont, boldFont, customFont);
-
-            await SaveDocumentAsync(document, outputPath);
+                await SaveDocumentAsync(document, outputPath);
+                _logger.LogInformation($"PDF created successfully at {outputPath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error in CreatePdfAsync: {ex.Message}");
+                throw;
+            }
         }
 
-        private void DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataDto ticketData, TicketHandling ticketHandling, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
+        private async Task DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataDto ticketData, TicketHandling ticketHandling, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
         {
             float scaleFactor = Math.Min(page.GetClientSize().Width / 1024f, 1);
             PointF ticketOrigin = new PointF((page.GetClientSize().Width - (1024 * scaleFactor)) / 2, 0);
 
             DrawBackgroundImage(page, backgroundImagePath, ticketOrigin, scaleFactor);
             DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketHandling, regularFont, boldFont, customFont);
-            DrawCustomTextElements(page.Graphics, ticketHandling, ticketOrigin, scaleFactor, regularFont);
-            DrawBarcode(page, ticketOrigin, scaleFactor, ticketHandling, ticketData);
+            DrawCustomTextElements(page.Graphics, ticketHandling, ticketOrigin, scaleFactor);
+            DrawBarcodeOrQRCode(page, ticketOrigin, scaleFactor, ticketHandling, ticketData);
             DrawScissorsLine(page.Graphics, ticketOrigin, scaleFactor, ticketHandling);
+            DrawVitec(page.Graphics, scaleFactor);
             if (ticketHandling.IncludeAd && !string.IsNullOrEmpty(ticketData.reklam1))
             {
-                DrawAd(page.Graphics, page, ticketData.reklam1, ticketOrigin, scaleFactor, regularFont, ticketHandling);
+                await DrawAd(page.Graphics, page, ticketData.reklam1, ticketOrigin, scaleFactor, regularFont, ticketHandling);
             }
         }
 
@@ -209,14 +230,16 @@ namespace Services
             page.Graphics.DrawImage(background, origin.X, origin.Y, 1024 * scale, 364 * scale);
         }
 
-        private void DrawTextIfCondition(PdfGraphics graphics, bool condition, object value, PointF origin, float scale, float? positionX, float? positionY, PdfFont font, string format = null)
+        private void DrawTextIfCondition(PdfGraphics graphics, bool condition, object? value, PointF origin, float scale, float? positionX, float? positionY, PdfFont font, string? format = null)
         {
             if (condition && value != null)
             {
                 PointF position = new PointF(
                     origin.X + (positionX ?? 0) * scale,
                     origin.Y + (positionY ?? 0) * scale);
-                string text = value is IFormattable formattableValue ? formattableValue.ToString(format, CultureInfo.InvariantCulture) : value.ToString();
+                string text = value is IFormattable formattableValue 
+                    ? formattableValue.ToString(format, CultureInfo.InvariantCulture) 
+                    : value?.ToString() ?? string.Empty;
                 graphics.DrawString(text, font, PdfBrushes.Black, position);
             }
         }
@@ -281,32 +304,22 @@ namespace Services
 
             DrawTextIfCondition(graphics, ticketHandling.IncludeWebbcode, ticketData.Webbcode, origin, scale, ticketHandling.WebbcodePositionX, ticketHandling.WebbcodePositionY, regularFont);
 
-            // Draw "Powered by Vitec Smart Visitor System AB" text at the bottom
-            string bottomTxt = "Powered by Vitec Smart Visitor System AB";
-            SizeF pageSize = graphics.ClientSize; // Assuming graphics is the PdfGraphics of the page
-            PdfFont bottomTxtFont = new PdfStandardFont(PdfFontFamily.Helvetica, 12, PdfFontStyle.Italic);
-            SizeF bottomTxtSize = bottomTxtFont.MeasureString(bottomTxt);
-            PointF bottomTxtPosition = new PointF(
-                (pageSize.Width - bottomTxtSize.Width) / 2, // Centered horizontally
-                pageSize.Height - bottomTxtSize.Height - 30 * scale // 30 units from the bottom
-            );
-            graphics.DrawString(bottomTxt, bottomTxtFont, PdfBrushes.Black, bottomTxtPosition);
-
-            // Draw scissors line below the ticket
-            DrawScissorsLine(graphics, origin, scale, ticketHandling);
-
             _logger.LogInformation("DrawTextContent method exited");
         }
 
-        private void DrawCustomTextElements(PdfGraphics graphics, TicketHandling ticketHandling, PointF origin, float scale, PdfFont regularFont)
+        private void DrawCustomTextElements(PdfGraphics graphics, TicketHandling ticketHandling, PointF origin, float scale)
         {
+            if (ticketHandling.CustomTextElements == null)
+            {
+                return;
+            }
             foreach (var customTextElement in ticketHandling.CustomTextElements)
             {
-                // Skip if the current CustomTextElement is null
-                if (customTextElement == null) continue;
-
-                // Skip if the text is null or empty
-                if (string.IsNullOrEmpty(customTextElement.Text)) continue;
+                // Skip if the current CustomTextElement or its Text property is null or empty
+                if (customTextElement == null || string.IsNullOrEmpty(customTextElement.Text))
+                {
+                    continue;
+                }
 
                 // Create a font for the custom text
                 float fontSize = customTextElement.FontSize.HasValue ? customTextElement.FontSize.Value : 10f;
@@ -355,109 +368,75 @@ namespace Services
             }
         }
 
-        private void DrawAd(PdfGraphics graphics, PdfPage page, string htmlContent, PointF origin, float scale, PdfFont font, TicketHandling ticketHandling)
+        private void DrawVitec(PdfGraphics graphics, float scale)
         {
-            //Extract the URL from the <img> tag
-            var imageUrl = ExtractImageUrl(htmlContent);
+            string bottomTxt = "Powered by Vitec Smart Visitor System AB";
+            SizeF pageSize = graphics.ClientSize; 
+            PdfFont bottomTxtFont = new PdfStandardFont(PdfFontFamily.Helvetica, 12, PdfFontStyle.Italic);
+            SizeF bottomTxtSize = bottomTxtFont.MeasureString(bottomTxt);
+            PointF bottomTxtPosition = new PointF(
+                (pageSize.Width - bottomTxtSize.Width) / 2, // Centered horizontally
+                pageSize.Height - bottomTxtSize.Height - 30 * scale // 30 units from the bottom
+            );
+            graphics.DrawString(bottomTxt, bottomTxtFont, PdfBrushes.Black, bottomTxtPosition);
+        }
 
-            // Correctly handle HTML entities
-            htmlContent = htmlContent.Replace("&nbsp;", "\u00A0");
-            htmlContent = htmlContent.Replace("&auml;", "ä");
-            htmlContent = htmlContent.Replace("&aring;", "å");
-            htmlContent = htmlContent.Replace("</p>", "</p><br/>");
-
-            PointF adPosition = new PointF(
-                origin.X + (ticketHandling.AdPositionX.HasValue ? ticketHandling.AdPositionX.Value * scale : 0),
-                origin.Y + (ticketHandling.AdPositionY.HasValue ? ticketHandling.AdPositionY.Value * scale : 500 * scale)
-                );
-
-            float xOffset = adPosition.X;
-            float yOffset = adPosition.Y;
-
-            // Remove the <img> tag from the htmlContent
+        private async Task DrawAd(PdfGraphics graphics, PdfPage page, string htmlContent, PointF origin, float scale, PdfFont font, TicketHandling ticketHandling)
+        {
+            // Extract the URL from the <img> tag, handle HTML entities and remove the <img> tag
+            string? imageUrl = ExtractImageUrl(htmlContent);
+            htmlContent = HandleHtmlEntities(htmlContent);
             htmlContent = RemoveImageTag(htmlContent);
 
-            // Rest of the HTML content
-            PdfHTMLTextElement htmlTextElement = new PdfHTMLTextElement(htmlContent, font, PdfBrushes.Black);
-            RectangleF rect = new RectangleF(xOffset, yOffset, page.GetClientSize().Width, page.GetClientSize().Height);
-            htmlTextElement.Draw(graphics, rect);
+            PointF adPosition = CalculateAdPosition(origin, scale, ticketHandling);
 
-            // If an image URL is found, draw it using PdfBitmap
+            DrawHtmlContent(graphics, page, htmlContent, font, adPosition);
             if (!string.IsNullOrEmpty(imageUrl))
             {
-                WebClient wc = new WebClient();
-                byte[] bytes = wc.DownloadData(imageUrl);
-                MemoryStream ms = new MemoryStream(bytes);
-                PdfBitmap image = new PdfBitmap(ms);
-
-                // Set the size to the original image size
-                SizeF imageSize = new SizeF(image.Width * scale, image.Height * scale);
-
-                yOffset += imageSize.Height * scale;
-
-                // Define the position for the image
-                PointF imagePosition = new PointF(xOffset, yOffset);
-
-                // Draw the image
-                graphics.DrawImage(image, imagePosition, imageSize);
-
-                // Dispose of WebClient and MemoryStream appropriately
-                wc.Dispose();
-                ms.Close();
+                await DrawAdImage(graphics, imageUrl, adPosition, scale);
             }
         }
 
-        private string ExtractImageUrl(string htmlContent)
+        private string? ExtractImageUrl(string htmlContent)
         {
+            // Extracts URL from <img> tag
             var match = Regex.Match(htmlContent, "<img.+?src=[\"'](.+?)[\"'].*?>", RegexOptions.IgnoreCase);
             return match.Success ? match.Groups[1].Value : null;
         }
 
+        private string HandleHtmlEntities(string htmlContent)
+        {
+            // Handles common HTML entities
+            Dictionary<string, string> entities = new Dictionary<string, string>()
+            {
+                {"&nbsp;", "\u00A0"}, {"&auml;", "ä"}, {"&aring;", "å"}, {"</p>", "</p><br/>"}
+            };
+            foreach (var entity in entities)
+            {
+                htmlContent = htmlContent.Replace(entity.Key, entity.Value);
+            }
+            return htmlContent;
+        }
+
         private string RemoveImageTag(string htmlContent)
         {
+            // Removes <img> tag from HTML content
             return Regex.Replace(htmlContent, "<img.+?>", "", RegexOptions.IgnoreCase);
         }
 
-        private void DrawBarcode(PdfPage page, PointF origin, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
+        private void DrawBarcodeOrQRCode(PdfPage page, PointF origin, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
         {
-            PointF barcodePosition = new PointF(
-            origin.X + (ticketHandling.BarcodePositionX.HasValue ? ticketHandling.BarcodePositionX.Value * scale : 0),
-            origin.Y + (ticketHandling.BarcodePositionY.HasValue ? ticketHandling.BarcodePositionY.Value * scale : 0)
-            );
-
+            PointF barCodePosition = CalculateBarcodePosition(origin, scale, ticketHandling);
             if (ticketHandling.UseQRCode)
             {
-                // Draw QR code
-                PdfQRBarcode qrCode = new PdfQRBarcode();
-                qrCode.Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod;
-                qrCode.Size = new SizeF(450 * scale, 205 * scale);
-                qrCode.Draw(page.Graphics, barcodePosition);
+                DrawQRCode(page.Graphics, barCodePosition, scale, ticketData);
             }
             else
             {
-                // Draw barcode
-                PdfCode39Barcode barcode = new PdfCode39Barcode();
-                barcode.Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod;
-                barcode.Size = new SizeF(270 * scale, 90 * scale);
-
-                if (ticketHandling.FlipBarcode)
-                {
-                    // Save the current state of the graphics object
-                    page.Graphics.Save();
-                    // Apply translation and rotation
-                    page.Graphics.TranslateTransform(barcodePosition.X + barcode.Size.Height, barcodePosition.Y);
-                    page.Graphics.RotateTransform(-90);
-                    // Draw the barcode at the transformed position
-                    barcode.Draw(page.Graphics, PointF.Empty);
-                    // Restore the graphics state to its original configuration
-                    page.Graphics.Restore();
-                }
-                else
-                {
-                    barcode.Draw(page.Graphics, barcodePosition);
-                }
+                DrawBarcode(page.Graphics, barCodePosition, scale, ticketHandling, ticketData);
             }
         }
+        
         private async Task SaveDocumentAsync(PdfDocument document, string outputPath)
         {
             try
@@ -470,6 +449,75 @@ namespace Services
             {
                 _logger.LogError($"PDF Ticket creation failed: {ex.Message}");
                 throw;
+            }
+        }
+        #endregion
+
+        #region Helper methods
+        private PointF CalculateAdPosition(PointF origin, float scale, TicketHandling ticketHandling)
+        {
+            return new PointF(
+                origin.X + (ticketHandling.AdPositionX.HasValue ? ticketHandling.AdPositionX.Value * scale : 0),
+                origin.Y + (ticketHandling.AdPositionY.HasValue ? ticketHandling.AdPositionY.Value * scale : 500 * scale)
+            );
+        }
+
+        private void DrawHtmlContent(PdfGraphics graphics, PdfPage page, string  htmlContent, PdfFont font, PointF adPosition)
+        {
+            RectangleF rect = new RectangleF(adPosition.X, adPosition.Y, page.GetClientSize().Width, page.GetClientSize().Height);
+            PdfHTMLTextElement htmlTextElement = new PdfHTMLTextElement(htmlContent, font, PdfBrushes.Black);
+            htmlTextElement.Draw(graphics, rect);
+        }
+
+        private async Task DrawAdImage(PdfGraphics graphics, string imageUrl, PointF adPosition, float scale)
+        {
+            using HttpClient httpClient = new HttpClient();
+            byte[] bytes = await httpClient.GetByteArrayAsync(imageUrl);
+            using MemoryStream ms = new MemoryStream(bytes);
+            PdfBitmap image = new PdfBitmap(ms);
+
+            SizeF imageSize = new SizeF(image.Width * scale, image.Height * scale);
+            PointF imagePosition = new PointF(adPosition.X, adPosition.Y + imageSize.Height * scale);
+            graphics.DrawImage(image, imagePosition, imageSize);
+        }
+
+        private PointF CalculateBarcodePosition(PointF origin, float scale, TicketHandling ticketHandling)
+        {
+            return new PointF(
+                origin.X + (ticketHandling.BarcodePositionX.HasValue ? ticketHandling.BarcodePositionX.Value : 825 * scale),
+                origin.X + (ticketHandling.BarcodePositionY.HasValue ? ticketHandling.BarcodePositionY.Value : 320 * scale)
+            );
+        }
+
+        private void DrawQRCode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketsDataDto ticketData)
+        {
+            PdfQRBarcode qrCode = new PdfQRBarcode
+            {
+                Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod,
+                Size = new SizeF(450 * scale, 205 * scale)
+            };
+            qrCode.Draw(graphics, barcodePosition);
+        }
+
+        private void DrawBarcode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
+        {
+            PdfCode39Barcode barcode = new PdfCode39Barcode
+            {
+                Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod,
+                Size = new SizeF(270 * scale, 90 * scale)
+            };
+
+            if (ticketHandling.FlipBarcode)
+            {
+                graphics.Save();
+                graphics.TranslateTransform(barcodePosition.X + barcode.Size.Height, barcodePosition.Y);
+                graphics.RotateTransform(-90);
+                barcode.Draw(graphics, PointF.Empty);
+                graphics.Restore();
+            }
+            else
+            {
+                barcode.Draw(graphics, barcodePosition);
             }
         }
         #endregion

@@ -34,9 +34,4 @@
         public string Rutbokstav { get; set; }
         public string Webbcode { get; set; }
     }
-
-    public class vwInfoDto
-    {
-        public List<TicketsDataDto> TicketsData { get; set; } = new List<TicketsDataDto>();
-    }
 }

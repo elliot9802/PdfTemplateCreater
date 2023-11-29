@@ -1,6 +1,4 @@
-using DbModels;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Models;
 using Newtonsoft.Json;
 using Services;
@@ -12,15 +10,15 @@ namespace AppPdfTemplateWApi.Controllers
     public class PdfTemplateController : ControllerBase
     {
         private readonly ILogger<PdfTemplateController> _logger;
-        private readonly IPdfTemplateService _pdfTemplateService;
-        private readonly ICreationService _pdfService;
+        private readonly IPdfTemplateService _pdfService;
         private readonly IFileService _fileService;
 
-        public PdfTemplateController(ILogger<PdfTemplateController> logger, IPdfTemplateService pdfTemplateService, ICreationService pdfService, IFileService fileService)
+        public PdfTemplateController(ILogger<PdfTemplateController> logger,
+                                     IPdfTemplateService pdfTemplateService,
+                                     IFileService fileService)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _pdfTemplateService = pdfTemplateService ?? throw new ArgumentNullException(nameof(pdfTemplateService));
-            _pdfService = pdfService ?? throw new ArgumentNullException(nameof(pdfService));
+            _pdfService = pdfTemplateService ?? throw new ArgumentNullException(nameof(pdfTemplateService));
             _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
         }
 
@@ -28,307 +26,216 @@ namespace AppPdfTemplateWApi.Controllers
         [HttpPost("GetPredefinedTemplate")]
         public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
         {
-            string tempBgFilePath = Path.GetTempFileName();
-            string outputPath = _pdfService.GetTemporaryPdfFilePath();
-
             if (bgFile == null || bgFile.Length == 0)
             {
-                _logger.LogWarning("Background file missing or empty.");
-                return BadRequest("Please provide a background image file.");
+                return BadRequestResponse("Background file missing or empty.");
             }
+
             try
             {
-                // Generate the PDF Preview
-                using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
-                {
-                    await bgFile.CopyToAsync(stream);
-                }
-
-                // Fetch the predefined TicketHandling data from the database
-                TicketHandling ticketHandlingData = await _pdfTemplateService.GetPredefinedTicketHandlingAsync(showEventInfo);
-                if (ticketHandlingData == null)
-                {
-                    _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
-                    return NotFound($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
-                }
-
-                // Fetch the ticket data that will be displayed in the PDF
-                TicketsDataDto ticketData = await _pdfTemplateService.GetTicketDataAsync(ticketId, showEventInfo);
-
-                // Use the predefined TicketHandling data and ticket data to create a PDF
-                await _pdfTemplateService.CreatePdfAsync(outputPath, ticketData, ticketHandlingData, tempBgFilePath);
-
-                // Read the created PDF and prepare a file result
-                var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
-                var fileName = $"{Guid.NewGuid()}.pdf";
-
-                _logger.LogInformation($"PDF created successfully. FileName: {fileName}");
-                return File(pdfBytes, "application/pdf", fileName);
+                var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, ticketId, bgFile);
+                return FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
+            }
+            catch (CustomNotFoundException ex)
+            {
+                return NotFoundResponse(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while creating PDF from predefined template.");
-                return StatusCode(500, new { message = "Error creating PDF from predefined template", error = ex.Message });
-            }
-            finally
-            {
-                _logger.LogInformation("Cleaning up temporary files.");
-                // Clean up the temporary file
-                if (_fileService.Exists(outputPath))
-                {
-                    await _fileService.DeleteAsync(outputPath);
-                }
+                return InternalServerErrorResponse(ex);
             }
         }
 
-        //POST: api/pdftemplate/CreateTemplate
         [HttpPost("CreateTemplate")]
-        public async Task<IActionResult> CreateTemplate(
-        [FromForm] TicketHandling ticketHandling,
-        IFormFile bgFile,
-        [FromForm] string? customTextElementsJson, // Accept JSON string
-        int ticketId,
-        bool saveToDb = false)
+        public async Task<IActionResult> CreateTemplate([FromForm] TicketHandling ticketHandling,
+                                                        IFormFile bgFile,
+                                                        [FromForm] string? customTextElementsJson,
+                                                        int ticketId,
+                                                        bool saveToDb = false)
         {
-            if (!string.IsNullOrEmpty(customTextElementsJson))
+            if (!TryDeserializeCustomTextElements(customTextElementsJson, out var customTextElements))
             {
-                try
-                {
-                    var customTextElements = JsonConvert.DeserializeObject<List<CustomTextElement>>(customTextElementsJson);
-                    ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
-                }
-                catch (JsonSerializationException ex)
-                {
-                    _logger.LogError(ex, "Error deserializing customTextElementsJson");
-                    return BadRequest("Invalid format for custom text elements.");
-                }
-            }
-            else
-            {
-                // If customTextElementsJson is null or empty, initialize with an empty list
-                ticketHandling.CustomTextElements = new List<CustomTextElement>();
+                return BadRequestResponse("Invalid format for custom text elements.");
             }
 
-            var tempBgFilePath = Path.GetTempFileName();
-            string outputPath = _pdfService.GetTemporaryPdfFilePath();
+            ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
 
             if (bgFile == null || bgFile.Length == 0)
             {
-                _logger.LogWarning("Background file missing or empty.");
-                return BadRequest("Please provide a background image file.");
+                return BadRequestResponse("Background file missing or empty.");
             }
+
             try
             {
-                // Generate the PDF Preview
-                using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
-                {
-                    await bgFile.CopyToAsync(stream);
-                }
-
-                var templateData = await _pdfTemplateService.GetTicketDataAsync(ticketId, null);
-                if (templateData == null)
-                {
-                    _logger.LogWarning($"No template data found for ticket creation");
-                    return NotFound("Ticket Id Not Found");
-                }
-
-                await _pdfTemplateService.CreatePdfAsync(outputPath, templateData, ticketHandling, tempBgFilePath);
-
-                // Step 2: If the user wants to save the template, save the details to the database
-                if (saveToDb)
-                {
-                    TemplateCUdto templateDetails = _pdfTemplateService.MapTicketHandlingToTemplateCUdto(ticketHandling);
-                    var createdTemplate = await _pdfTemplateService.CreateTemplateAsync(templateDetails);
-
-                    // Return the created template details
-                    return Ok(createdTemplate);
-                }
-                else
-                {
-                    var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
-                    var fileName = $"{Guid.NewGuid()}.pdf";
-
-                    _logger.LogInformation($"PDF created successfully. FileName: {fileName}");
-                    return File(pdfBytes, "application/pdf", fileName);
-                }
+                var templateProcessResult = await ProcessTemplateCreation(ticketHandling, bgFile, ticketId, saveToDb);
+                return saveToDb ? OkResponse(templateProcessResult) : FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occured while creating PDF");
-                return StatusCode(500, new
-                {
-                    message = "Error creating PDF",
-                    error = ex.Message
-                });
-            }
-            finally
-            {
-                _logger.LogInformation($"Cleaning up temporary files.");
-                await _fileService.DeleteAsync(tempBgFilePath);
-                if (_fileService.Exists(outputPath))
-                {
-                    await _fileService.DeleteAsync(outputPath);
-                }
+                return InternalServerErrorResponse(ex);
             }
         }
 
-        //DELETE: api/pdftemplate/DeleteTicketTemplate/id
         [HttpDelete("{id}")]
-        [ActionName("DeleteTicketTemplate")]
-        [ProducesResponseType(200, Type = typeof(TicketTemplateDbM))]
-        [ProducesResponseType(400, Type = typeof(string))]
         public async Task<IActionResult> DeleteTicketTemplate(string id)
         {
             try
             {
-                var _id = Guid.Parse(id);
-                var template = await _pdfTemplateService.DeleteTemplateAsync(_id);
+                var template = await _pdfService.DeleteTemplateAsync(Guid.Parse(id));
                 return Ok(template);
             }
             catch (ArgumentException ex)
             {
-                return NotFound(ex.Message);
+                return NotFoundResponse(ex.Message);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.InnerException?.Message);
+                return InternalServerErrorResponse(ex);
             }
         }
 
-        //GET: api/pdftemplate/GetTicketTemplate
-        [HttpGet()]
-        [ProducesResponseType(200, Type = typeof(List<int>))]
-        [ProducesResponseType(400, Type = typeof(string))]
+        [HttpGet]
         public async Task<IActionResult> GetTicketTemplate()
         {
             try
             {
-                var showEventInfoList = await _pdfTemplateService.ReadTemplatesAsync();
+                var showEventInfoList = await _pdfService.ReadTemplatesAsync();
                 return Ok(showEventInfoList);
-            }
-            catch (ArgumentException ex)
-            {
-                return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.InnerException?.Message);
+                return InternalServerErrorResponse(ex);
             }
         }
 
+        // Helper methods
+        private IActionResult BadRequestResponse(string message)
+        {
+            _logger.LogWarning(message);
+            return BadRequest(new { message });
+        }
 
-        //[HttpPost()]
-        //[ActionName("createPdf")]
-        //[ProducesResponseType(200, Type = typeof(string))]
-        //[ProducesResponseType(400, Type = typeof(string))]
-        //public async Task<IActionResult> CreatePdf([FromForm] TicketHandling ticketRequest, IFormFile bgFile)
-        //{
-        //    if (bgFile == null || bgFile.Length == 0)
-        //    {
-        //        _logger.LogWarning("Background file missing or empty.");
-        //        return BadRequest("Please provide a background image file.");
-        //    }
-        //    var tempBgFilePath = Path.GetTempFileName();
-        //    string outputPath = _pdfService.GetTemporaryPdfFilePath();
+        private IActionResult NotFoundResponse(string message)
+        {
+            _logger.LogWarning(message);
+            return NotFound(new { message });
+        }
 
-        //    try
-        //    {
-        //        using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
-        //        {
-        //            await bgFile.CopyToAsync(stream);
-        //        }
+        private IActionResult InternalServerErrorResponse(Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred");
+            return StatusCode(500, new { message = "An error occurred", error = ex.InnerException });
+        }
 
-        //        var templateData = await _pdfTemplateService.GetTicketDataAsync(ticketRequest);
-        //        if (templateData == null)
-        //        {
-        //            _logger.LogWarning($"No template data found for ticket creation");
-        //            return NotFound("Ticket Id Not Found");
-        //        }
+        private FileResult FileResultFromBytes(byte[] fileBytes, string fileName)
+        {
+            _logger.LogInformation($"File {fileName} created successfully");
+            return File(fileBytes, "application/pdf", fileName);
+        }
 
-        //        await _pdfTemplateService.CreatePdfAsync(outputPath, templateData, ticketRequest, tempBgFilePath);
+        private IActionResult OkResponse(object result)
+        {
+            return Ok(result);
+        }
 
+        private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements)
+        {
+            elements = null;
 
-        //        var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
-        //        var fileName = $"{Guid.NewGuid()}.pdf";
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                elements = new List<CustomTextElement>();
+                return true;
+            }
+            try
+            {
+                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json);
+                elements ??= new List<CustomTextElement>();
+                return true;
+            }
+            catch (JsonSerializationException ex)
+            {
+                _logger.LogError(ex, "Error deserializing customTextElementsJson");
+                return false;
+            }
+        }
 
-        //        _logger.LogInformation($"PDF created successfully. FileName: {fileName}");
-        //        return File(pdfBytes, "application/pdf", fileName);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error occured while creating PDF");
-        //        return StatusCode(500, new { message = "Error creating PDF", error = ex.Message });
-        //    }
-        //    finally
-        //    {
-        //        _logger.LogInformation($"Cleaning up temporary files.");
-        //        await _fileService.DeleteAsync(tempBgFilePath);
-        //        if (_fileService.Exists(outputPath))
-        //        {
-        //            await _fileService.DeleteAsync(outputPath);
-        //        }
-        //    }
-        //}
+        private async Task<byte[]> ProcessPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
+        {
+            string tempBgFilePath = Path.GetTempFileName();
+            using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
+            {
+                await bgFile.CopyToAsync(stream);
+            }
 
-        //[HttpPost()]
-        //[ActionName("CreateTicketTemplate")]
-        //[ProducesResponseType(200, Type = typeof(TemplateCUdto))]
-        //[ProducesResponseType(400, Type = typeof(ProblemDetails))]
-        //public async Task<IActionResult> CreateTicketTemplate([FromBody] TemplateCUdto _src)
-        //{
-        //    // Generate a correlation Id for the current operation
-        //    var correlationId = Guid.NewGuid().ToString();
-        //    _logger.LogInformation("CreateTicketTemplate invoked with correlation id: {CorrelationId}", correlationId);
-        //    // Extract and deserialize the TicketHandlingJson to a TicketHandling object
-        //    // This assumes the TemplateCUdto class in the API has a TicketHandlingJson property of type string
-        //    if (!string.IsNullOrEmpty(_src.TicketHandlingJson))
-        //    {
-        //        _src.TicketsHandling = JsonConvert.DeserializeObject<TicketHandling>(_src.TicketHandlingJson);
-        //    }
-        //    try
-        //    {
-        //        var createdTemplate = await _pdfTemplateService.CreateTemplateAsync(_src);
-        //        return Ok(createdTemplate);
-        //    }
-        //    catch (ArgumentException argEx)
-        //    {
-        //        _logger.LogError(argEx, "Argument exception in CreateTicketTemplate with correlation id: {CorrelationId} and source: {@TemplateCUdto}", correlationId, _src);
-        //        return BadRequest(new ProblemDetails { Title = "Invalid argument", Detail = argEx.Message, Instance = correlationId });
-        //    }
-        //    catch (DbUpdateException dbEx)
-        //    {
-        //        _logger.LogError(dbEx, "Database update exception in CreateTicketTemplate with correlation id: {CorrelationId} and source: {@TemplateCUdto}", correlationId, _src);
-        //        // You might want to return a 500 error for database-related issues
-        //        return StatusCode(500, new ProblemDetails { Title = "Database error", Detail = "Error occurred while updating the database.", Instance = correlationId });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Unhandled exception in CreateTicketTemplate with correlation id: {CorrelationId} and source: {@TemplateCUdto}", correlationId, _src);
-        //        return StatusCode(500, new ProblemDetails { Title = "Server error", Detail = "An unexpected error occurred.", Instance = correlationId });
-        //    }
-        //}
+            var ticketHandlingData = await _pdfService.GetPredefinedTicketHandlingAsync(showEventInfo);
+            if (ticketHandlingData == null)
+            {
+                _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
+                await CleanUpFiles(tempBgFilePath);
+                throw new CustomNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
+            }
 
-        //// PUT: /PdfTemplate/Update/{templateName}
-        //[HttpPut("Update/{templateName}")]
-        //public ActionResult UpdateTemplate(string templateName, [FromBody] csPdfTemplate updatedTemplate)
-        //{
-        //    var template = InMemoryTemplateStore.Templates.FirstOrDefault(t => t.TemplateName == templateName);
-        //    if (template == null)
-        //    {
-        //        return NotFound("Template not found.");
-        //    }
+            var ticketData = await _pdfService.GetTicketDataAsync(ticketId, showEventInfo);
+            var outputPath = _pdfService.GetTemporaryPdfFilePath();
+            await _pdfService.CreatePdfAsync(outputPath, ticketData, ticketHandlingData, tempBgFilePath);
 
-        //    // Update logic
-        //    template.Columns = updatedTemplate.Columns;
+            var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
+            _logger.LogInformation($"PDF created successfully. FileName: {Path.GetFileName(outputPath)}");
 
-        //    return Ok("Template updated successfully.");
-        //}
+            await CleanUpFiles(outputPath, tempBgFilePath);
+            return pdfBytes;
+        }
 
-        //// GET: /PdfTemplate/List
-        //[HttpGet("List")]
-        //public ActionResult<IEnumerable<csPdfTemplate>> ListTemplates()
-        //{
-        //    return Ok(InMemoryTemplateStore.Templates);
-        //}
+        private async Task<byte[]> ProcessTemplateCreation(TicketHandling ticketHandling, IFormFile bgFile, int ticketId, bool saveToDb)
+        {
+            string tempBgFilePath = Path.GetTempFileName();
+            using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
+            {
+                await bgFile.CopyToAsync(stream);
+            }
+
+            var ticketData = await _pdfService.GetTicketDataAsync(ticketId, null);
+            if (ticketData == null)
+            {
+                _logger.LogWarning($"No template data found for ticket creation");
+                await CleanUpFiles(tempBgFilePath);
+                throw new CustomNotFoundException("Ticket Id Not Found");
+            }
+
+            var outputPath = _pdfService.GetTemporaryPdfFilePath();
+            await _pdfService.CreatePdfAsync(outputPath, ticketData, ticketHandling, tempBgFilePath);
+
+            byte[] pdfBytes = Array.Empty<byte>();
+            if (saveToDb)
+            {
+                TemplateCUdto templateDetails = _pdfService.MapTicketHandlingToTemplateCUdto(ticketHandling);
+                await _pdfService.CreateTemplateAsync(templateDetails);
+            }
+            else
+            {
+                pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
+                _logger.LogInformation($"PDF created successfully. FileName: {Path.GetFileName(outputPath)}");
+            }
+
+            await CleanUpFiles(outputPath, tempBgFilePath);
+            return pdfBytes;
+        }
+        private async Task CleanUpFiles(params string[] filePaths)
+        {
+            foreach (var filePath in filePaths)
+            {
+                if (_fileService.Exists(filePath))
+                {
+                    await _fileService.DeleteAsync(filePath);
+                }
+            }
+        }
+
+    }
+
+    public class CustomNotFoundException : Exception
+    {
+        public CustomNotFoundException(string message) : base(message) { }
     }
 }

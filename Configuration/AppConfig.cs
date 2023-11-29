@@ -1,5 +1,7 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using System.IO;
+using Syncfusion.Licensing;
 
 namespace Configuration
 {
@@ -11,26 +13,14 @@ namespace Configuration
         public const string Appsettingfile = "appsettings.json";
 #endif
 
-        #region Singleton design pattern
-        private static readonly object instanceLock = new();
-
-        private static AppConfig _instance = null;
-        private static IConfigurationRoot _configuration = null;
-        #endregion
-
-        //All the DB Connections in the appsetting file
+        private static readonly object InstanceLock = new();
+        private static AppConfig _instance;
+        private static IConfigurationRoot _configuration;
         private static DbLoginDetail _dbLogin;
-        public static ImagePaths ImgPaths { get; private set; }
+        public static ImagePaths _imgPaths;
 
         private AppConfig()
         {
-            //Lets get the credentials access Azure KV and set them as Environment variables
-            //During Development this will come from User Secrets,
-            //After Deployment it will come from appsettings.json
-
-            string s = Directory.GetCurrentDirectory();
-
-            //Create final ConfigurationRoot which includes also AzureKeyVault
             var builder = new ConfigurationBuilder()
                                 .SetBasePath(Directory.GetCurrentDirectory())
                                 .AddJsonFile(Appsettingfile, optional: true, reloadOnChange: true)
@@ -38,22 +28,18 @@ namespace Configuration
 
             _configuration = builder.Build();
 
-            //get DbSet details
-            
-            ImgPaths = new ImagePaths();
-            _configuration.GetSection("ImagePaths").Bind(ImgPaths);
+            _imgPaths = new ImagePaths();
+            _configuration.GetSection("ImagePaths").Bind(_imgPaths);
 
             var syncfusionLicenseKey = _configuration["SyncfusionLicenseKey"];
-            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(syncfusionLicenseKey);
-
-
+            SyncfusionLicenseProvider.RegisterLicense(syncfusionLicenseKey);
         }
 
         public static IConfigurationRoot ConfigurationRoot
         {
             get
             {
-                lock (instanceLock)
+                lock (InstanceLock)
                 {
                     if (_instance == null)
                     {
@@ -64,42 +50,33 @@ namespace Configuration
             }
         }
 
+
         public static DbLoginDetail GetDbLoginDetails(string dbLoginKey)
         {
             if (string.IsNullOrEmpty(dbLoginKey))
                 throw new ArgumentNullException(nameof(dbLoginKey), "Database login key is not provided.");
 
-            lock (instanceLock)
+            lock (InstanceLock)
             {
-                // If _dbLogin has not been initialized, attempt to initialize it with the connection string
-                // associated with the dbLoginKey in the configuration (user secrets or appsettings.json).
                 if (_dbLogin == null)
                 {
-                    // Retrieve the connection string using the dbLoginKey.
-                    var connectionString = ConfigurationRoot["DbLogins"]; // This should match your user secrets key for the connection string
+                    var connectionString = ConfigurationRoot["DbLogins"];
                     if (string.IsNullOrEmpty(connectionString))
                     {
                         throw new InvalidOperationException($"Connection string for key '{dbLoginKey}' is missing in the configuration.");
                     }
 
-                    // Initialize the _dbLogin with the retrieved connection string.
                     _dbLogin = new DbLoginDetail { DbConnection = connectionString };
                 }
 
-                // Return the initialized _dbLogin instance.
                 return _dbLogin;
             }
         }
 
-        public static ImagePaths GetImagePaths()
-        {
-            return ImgPaths;
-        }
+        public static ImagePaths GetImagePaths() => _imgPaths;
 
         public class DbLoginDetail
         {
-            //set after reading in the active DbSet
-
             public string DbConnection { get; set; }
             public string DbConnectionString => DbConnection;
         }

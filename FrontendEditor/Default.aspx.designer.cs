@@ -942,33 +942,6 @@ namespace FrontEndEditor
         protected global::System.Web.UI.WebControls.CheckBox chkIncludeScissorsLine;
 
         /// <summary>
-        /// lblLocationPosition control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.Label lblLocationPosition;
-
-        /// <summary>
-        /// txtLocationPositionX control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.TextBox txtLocationPositionX;
-
-        /// <summary>
-        /// txtLocationPositionY control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.TextBox txtLocationPositionY;
-
-        /// <summary>
         /// lblBarcodePosition control.
         /// </summary>
         /// <remarks>
@@ -1059,24 +1032,6 @@ namespace FrontEndEditor
         protected global::System.Web.UI.WebControls.TextBox txtColor;
 
         /// <summary>
-        /// TextBox1 control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.TextBox TextBox1;
-
-        /// <summary>
-        /// btnPreview control.
-        /// </summary>
-        /// <remarks>
-        /// Auto-generated field.
-        /// To modify move field declaration from designer file to code-behind file.
-        /// </remarks>
-        protected global::System.Web.UI.WebControls.Button btnPreview;
-
-        /// <summary>
         /// btnAddCustomText control.
         /// </summary>
         /// <remarks>
@@ -1086,13 +1041,31 @@ namespace FrontEndEditor
         protected global::System.Web.UI.WebControls.Button btnAddCustomText;
 
         /// <summary>
-        /// bguploadFile control.
+        /// txtNewTicketId control.
         /// </summary>
         /// <remarks>
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.FileUpload bguploadFile;
+        protected global::System.Web.UI.WebControls.TextBox txtNewTicketId;
+
+        /// <summary>
+        /// bgUploadFile control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.FileUpload bgUploadFile;
+
+        /// <summary>
+        /// btnPreview control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Button btnPreview;
 
         /// <summary>
         /// btnSaveToDb control.
@@ -1156,6 +1129,15 @@ namespace FrontEndEditor
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
         protected global::System.Web.UI.WebControls.Button btnGetPredefinedTemplate;
+
+        /// <summary>
+        /// btnGetExistingTemplate control.
+        /// </summary>
+        /// <remarks>
+        /// Auto-generated field.
+        /// To modify move field declaration from designer file to code-behind file.
+        /// </remarks>
+        protected global::System.Web.UI.WebControls.Button btnGetExistingTemplate;
 
         /// <summary>
         /// litScript control.

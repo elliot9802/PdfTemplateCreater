@@ -2,9 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 using System.Web.UI;
 
 namespace FrontEndEditor
@@ -120,12 +122,12 @@ namespace FrontEndEditor
         {
             try
             {
-                if (bgFileUpload.HasFile)
+                if (bgFileUpload != null)
                 {
                     var content = new MultipartFormDataContent();
                     var fileContent = new StreamContent(bgFileUpload.PostedFile.InputStream);
 
-                    fileContent.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+                    fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
                     {
                         Name = "bgFile",
                         FileName = bgFileUpload.PostedFile.FileName
@@ -170,7 +172,7 @@ namespace FrontEndEditor
                 }
                 else
                 {
-                    litScript.Text = "Please provide all required inputs.";
+                    litScript.Text = "Please upload a background image.";
                 }
             }
             catch (Exception ex)
@@ -181,16 +183,15 @@ namespace FrontEndEditor
 
         protected async void btnPreview_Click(object sender, EventArgs e)
         {
-
-            if (bguploadFile.HasFile)
+            if (bgUploadFile != null)
             {
                 var content = new MultipartFormDataContent();
-                var fileContent = new StreamContent(bguploadFile.PostedFile.InputStream);
+                var fileContent = new StreamContent(bgUploadFile.PostedFile.InputStream);
 
-                fileContent.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+                fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
                 {
                     Name = "bgFile",
-                    FileName = bguploadFile.PostedFile.FileName
+                    FileName = bgUploadFile.PostedFile.FileName
                 };
 
                 content.Add(fileContent);
@@ -210,9 +211,9 @@ namespace FrontEndEditor
                 string customJson = GetCustomJson();
 
                 // Ensure that customJson is properly serialized and added with the correct content type
-                content.Add(new StringContent(customJson, System.Text.Encoding.UTF8, "application/json"), "customTextElementsJson");
+                content.Add(new StringContent(customJson, Encoding.UTF8, "application/json"), "customTextElementsJson");
 
-                string ticketId = TextBox1.Text;
+                string ticketId = txtNewTicketId.Text;
                 string requestUrl = $"https://localhost:7104/api/PdfTemplate/CreateTemplate/CreateTemplate?ticketId={ticketId}&saveToDb=false";
 
                 try
@@ -238,60 +239,67 @@ namespace FrontEndEditor
             }
             else
             {
-                litScript.Text = "Please provide all required inputs.";
+                litScript.Text = "Please upload a background image.";
             }
         }
 
         protected async void btnSaveToDb_Click(object sender, EventArgs e)
         {
-            var content = new MultipartFormDataContent();
-            var fileContent = new StreamContent(bguploadFile.PostedFile.InputStream);
-
-            fileContent.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+            if (bgUploadFile!= null)
             {
-                Name = "bgFile",
-                FileName = bguploadFile.PostedFile.FileName
-            };
+                var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(bgUploadFile.PostedFile.InputStream);
 
-            content.Add(fileContent);
-
-            // Assuming GetTicketHandling() returns a TicketHandling object
-            TicketHandling ticketHandling = GetTicketHandling();
-
-            // Use reflection to add properties dynamically
-            foreach (PropertyInfo property in ticketHandling.GetType().GetProperties())
-            {
-                var value = property.GetValue(ticketHandling, null)?.ToString();
-                if (value != null)
+                fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
                 {
-                    content.Add(new StringContent(value), property.Name);
+                    Name = "bgFile",
+                    FileName = bgUploadFile.PostedFile.FileName
+                };
+
+                content.Add(fileContent);
+
+                // Assuming GetTicketHandling() returns a TicketHandling object
+                TicketHandling ticketHandling = GetTicketHandling();
+
+                // Use reflection to add properties dynamically
+                foreach (PropertyInfo property in ticketHandling.GetType().GetProperties())
+                {
+                    var value = property.GetValue(ticketHandling, null)?.ToString();
+                    if (value != null)
+                    {
+                        content.Add(new StringContent(value), property.Name);
+                    }
+                }
+                string customJson = GetCustomJson();
+
+                // Ensure that customJson is properly serialized and added with the correct content type
+                content.Add(new StringContent(customJson, Encoding.UTF8, "application/json"), "customTextElementsJson");
+
+                string ticketId = txtTicketId.Text;
+                string requestUrl = $"https://localhost:7104/api/PdfTemplate/CreateTemplate/CreateTemplate?ticketId={ticketId}&saveToDb=true";
+
+                try
+                {
+                    var response = await client.PostAsync(requestUrl, content);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        litScript.Text = "Saved to Database!";
+                    }
+                    else
+                    {
+                        var errorResponse = await response.Content.ReadAsStringAsync();
+                        litScript.Text = $"Error in saving PDF template to database: {response.StatusCode} - {errorResponse}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    litScript.Text = $"Errorrrr: {ex.Message}";
                 }
             }
-            string customJson = GetCustomJson();
-
-            // Ensure that customJson is properly serialized and added with the correct content type
-            content.Add(new StringContent(customJson, System.Text.Encoding.UTF8, "application/json"), "customTextElementsJson");
-
-            string ticketId = TextBox1.Text;
-            string requestUrl = $"https://localhost:7104/api/PdfTemplate/CreateTemplate/CreateTemplate?ticketId={ticketId}&saveToDb=true";
-
-            try
+            else
             {
-                var response = await client.PostAsync(requestUrl, content);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    litScript.Text = "Saved to Database!";
-                }
-                else
-                {
-                    var errorResponse = await response.Content.ReadAsStringAsync();
-                    litScript.Text = $"Error in saving PDF template to database: {response.StatusCode} - {errorResponse}";
-                }
-            }
-            catch (Exception ex)
-            {
-                litScript.Text = $"Errorrrr: {ex.Message}";
+                litScript.Text = "Please upload a background image.";
             }
         }
 
@@ -300,6 +308,7 @@ namespace FrontEndEditor
             var ticketHandling = new TicketHandling()
             {
                 // Include properties
+                #region Include
                 IncludeStrukturArtikel = chkIncludeStrukturArtikel.Checked,
                 IncludeDescription = chkIncludeDescription.Checked,
                 IncludeArtNotText = chkIncludeArtNotText.Checked,
@@ -326,8 +335,10 @@ namespace FrontEndEditor
                 IncludeEntrance = chkIncludeEntrance.Checked,
                 IncludeWebbcode = chkIncludeWebbcode.Checked,
                 IncludeScissorsLine = chkIncludeScissorsLine.Checked,
+                #endregion
 
                 //// Position properties
+                #region Position
                 ArtNrPositionX = TryParseFloat(txtArtNrPositionX.Text),
                 ArtNrPositionY = TryParseFloat(txtArtNrPositionY.Text),
                 PricePositionX = TryParseFloat(txtPricePositionX.Text),
@@ -350,8 +361,6 @@ namespace FrontEndEditor
                 Logorad1PositionY = TryParseFloat(txtLogorad1PositionY.Text),
                 Logorad2PositionX = TryParseFloat(txtLogorad2PositionX.Text),
                 Logorad2PositionY = TryParseFloat(txtLogorad2PositionY.Text),
-                LocationPositionX = TryParseFloat(txtLocationPositionX.Text),
-                LocationPositionY = TryParseFloat(txtLocationPositionY.Text),
                 SectionPositionX = TryParseFloat(txtSectionPositionX.Text),
                 SectionPositionY = TryParseFloat(txtSectionPositionY.Text),
                 BookingNrPositionX = TryParseFloat(txtBookingNrPositionX.Text),
@@ -382,6 +391,7 @@ namespace FrontEndEditor
                 WebbcodePositionY = TryParseFloat(txtWebbcodePositionY.Text),
                 BarcodePositionX = TryParseFloat(txtBarcodePositionX.Text),
                 BarcodePositionY = TryParseFloat(txtBarcodePositionY.Text),
+#endregion
 
                 // Other properties
                 UseQRCode = chkUseQRCode.Checked,
@@ -408,12 +418,11 @@ namespace FrontEndEditor
         public class TicketHandling
         {
             // Properties for customization options
+            #region Include
             public bool IncludeStrukturArtikel { get; set; }
             public bool IncludeDescription { get; set; }
             public bool IncludeArtNotText { get; set; }
-            #region helt tom, inte null
             public bool IncludeRutBokstav { get; set; }
-            #endregion
             public bool IncludeArtNr { get; set; }
             public bool IncludePrice { get; set; }
             public bool IncludeServiceFee { get; set; }
@@ -430,13 +439,13 @@ namespace FrontEndEditor
             public bool IncludeWebBookingNr { get; set; }
             public bool IncludeFacilityName { get; set; }
             public bool IncludeAd { get; set; }
-
             public bool IncludeContactPerson { get; set; }
             public bool IncludeEmail { get; set; }
             public bool IncludeDatum { get; set; }
             public bool IncludeEntrance { get; set; }
             public bool IncludeWebbcode { get; set; }
             public bool IncludeScissorsLine { get; set; }
+#endregion
             #region Position 
             // Properties for positioning elements on the ticket
             public float? ArtNrPositionX { get; set; }
@@ -471,9 +480,6 @@ namespace FrontEndEditor
 
             public float? Logorad2PositionX { get; set; }
             public float? Logorad2PositionY { get; set; }
-
-            public float? LocationPositionX { get; set; }
-            public float? LocationPositionY { get; set; }
 
             public float? SectionPositionX { get; set; }
             public float? SectionPositionY { get; set; }
@@ -525,8 +531,6 @@ namespace FrontEndEditor
             public bool UseQRCode { get; set; }
 
             public bool FlipBarcode { get; set; }
-
-            //public List<CustomTextElement> CustomTextElements { get; set; } = new List<CustomTextElement>();
 
             public TicketHandling()
             {

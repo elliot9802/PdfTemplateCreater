@@ -36,7 +36,7 @@ namespace AppPdfTemplateWApi.Controllers
                 var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, ticketId, bgFile);
                 return FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
             }
-            catch (CustomNotFoundException ex)
+            catch (KeyNotFoundException ex)
             {
                 return NotFoundResponse(ex.Message);
             }
@@ -68,7 +68,7 @@ namespace AppPdfTemplateWApi.Controllers
             try
             {
                 var templateProcessResult = await ProcessTemplateCreation(ticketHandling, bgFile, ticketId, saveToDb);
-                return saveToDb ? OkResponse(templateProcessResult) : FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
+                return saveToDb ? Ok(templateProcessResult) : FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
             }
             catch (Exception ex)
             {
@@ -133,11 +133,6 @@ namespace AppPdfTemplateWApi.Controllers
             return File(fileBytes, "application/pdf", fileName);
         }
 
-        private IActionResult OkResponse(object result)
-        {
-            return Ok(result);
-        }
-
         private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements)
         {
             elements = null;
@@ -173,7 +168,7 @@ namespace AppPdfTemplateWApi.Controllers
             {
                 _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
                 await CleanUpFiles(tempBgFilePath);
-                throw new CustomNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
+                throw new KeyNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
             }
 
             var ticketData = await _pdfService.GetTicketDataAsync(ticketId, showEventInfo);
@@ -200,7 +195,7 @@ namespace AppPdfTemplateWApi.Controllers
             {
                 _logger.LogWarning($"No template data found for ticket creation");
                 await CleanUpFiles(tempBgFilePath);
-                throw new CustomNotFoundException("Ticket Id Not Found");
+                throw new KeyNotFoundException($"Ticket Id {ticketId} Not Found");
             }
 
             var outputPath = _pdfService.GetTemporaryPdfFilePath();
@@ -231,11 +226,5 @@ namespace AppPdfTemplateWApi.Controllers
                 }
             }
         }
-
-    }
-
-    public class CustomNotFoundException : Exception
-    {
-        public CustomNotFoundException(string message) : base(message) { }
     }
 }

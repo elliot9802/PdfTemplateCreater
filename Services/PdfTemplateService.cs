@@ -457,8 +457,8 @@ namespace Services
         private PointF CalculateAdPosition(PointF origin, float scale, TicketHandling ticketHandling)
         {
             return new PointF(
-                origin.X + (ticketHandling.AdPositionX.HasValue ? ticketHandling.AdPositionX.Value * scale : 0),
-                origin.Y + (ticketHandling.AdPositionY.HasValue ? ticketHandling.AdPositionY.Value * scale : 500 * scale)
+                origin.X + (ticketHandling.AdPositionX.HasValue ? ticketHandling.AdPositionX.Value : 0) * scale, 
+                origin.Y + (ticketHandling.AdPositionY.HasValue ? ticketHandling.AdPositionY.Value : 500) * scale
             );
         }
 
@@ -484,8 +484,8 @@ namespace Services
         private PointF CalculateBarcodePosition(PointF origin, float scale, TicketHandling ticketHandling)
         {
             return new PointF(
-                origin.X + (ticketHandling.BarcodePositionX.HasValue ? ticketHandling.BarcodePositionX.Value : 825 * scale),
-                origin.X + (ticketHandling.BarcodePositionY.HasValue ? ticketHandling.BarcodePositionY.Value : 320 * scale)
+                origin.X + (ticketHandling.BarcodePositionX.HasValue ? ticketHandling.BarcodePositionX.Value : 825) * scale,
+                origin.Y + (ticketHandling.BarcodePositionY.HasValue ? ticketHandling.BarcodePositionY.Value : 320) * scale
             );
         }
 

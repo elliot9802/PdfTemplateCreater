@@ -8,11 +8,8 @@ namespace DbModels
     [Table("TicketTemplate")]
     public class TicketTemplateDbM : TicketTemplate
     {
-        [Key]
-        public override Guid TicketTemplateId { get; set; }
-
         [Required]
-        public string TicketsHandlingJson { get; set; }
+        public override int ShowEventInfo { get; set; }
 
         [NotMapped]
         public override TicketHandling TicketsHandling
@@ -24,7 +21,10 @@ namespace DbModels
         }
 
         [Required]
-        public override int ShowEventInfo { get; set; }
+        public string TicketsHandlingJson { get; set; }
+
+        [Key]
+        public override Guid TicketTemplateId { get; set; }
 
         #region constructors
 

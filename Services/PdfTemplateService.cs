@@ -18,9 +18,9 @@ namespace Services
     {
         #region constructor logic
 
-        private readonly ILogger<PdfTemplateService> _logger;
-        private readonly string _dbLogin;
         private readonly string _backgroundImagePath;
+        private readonly string _dbLogin;
+        private readonly ILogger<PdfTemplateService> _logger;
         private readonly string _scissorsLineImagePath;
 
         public PdfTemplateService(ILogger<PdfTemplateService> logger)
@@ -39,20 +39,26 @@ namespace Services
 
         #region database methods
 
-        public async Task<List<int>> ReadTemplatesAsync()
+        public async Task<TicketHandling> GetPredefinedTicketHandlingAsync(int showEventInfo)
         {
             try
             {
-                using (var db = csMainDbContext.Create(_dbLogin))
+                using var db = csMainDbContext.Create(_dbLogin);
+                var predefinedTemplate = await db.TicketTemplate
+                                                 .AsNoTracking()
+                                                 .FirstOrDefaultAsync(t => t.ShowEventInfo == showEventInfo);
+
+                if (predefinedTemplate == null)
                 {
-                    var templates = await db.TicketTemplate.Select(t => t.ShowEventInfo).ToListAsync();
-                    _logger.LogInformation($"Retrieved {templates.Count} templates");
-                    return templates;
+                    _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
+                    return null;
                 }
+
+                return predefinedTemplate.TicketsHandling; // This now contains TicketHandling data.
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error in ReadTemplatesAsync: {ex.Message}");
+                _logger.LogError($"Error in GetPredefinedTicketHandlingAsync: {ex.Message}");
                 throw;
             }
         }
@@ -84,26 +90,20 @@ namespace Services
             }
         }
 
-        public async Task<TicketHandling> GetPredefinedTicketHandlingAsync(int showEventInfo)
+        public async Task<List<int>> ReadTemplatesAsync()
         {
             try
             {
-                using var db = csMainDbContext.Create(_dbLogin);
-                var predefinedTemplate = await db.TicketTemplate
-                                                 .AsNoTracking()
-                                                 .FirstOrDefaultAsync(t => t.ShowEventInfo == showEventInfo);
-
-                if (predefinedTemplate == null)
+                using (var db = csMainDbContext.Create(_dbLogin))
                 {
-                    _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
-                    return null;
+                    var templates = await db.TicketTemplate.Select(t => t.ShowEventInfo).ToListAsync();
+                    _logger.LogInformation($"Retrieved {templates.Count} templates");
+                    return templates;
                 }
-
-                return predefinedTemplate.TicketsHandling; // This now contains TicketHandling data.
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error in GetPredefinedTicketHandlingAsync: {ex.Message}");
+                _logger.LogError($"Error in ReadTemplatesAsync: {ex.Message}");
                 throw;
             }
         }
@@ -113,24 +113,6 @@ namespace Services
         #region Creating Pdf methods
 
         #region database methods
-
-        public string GetTemporaryPdfFilePath()
-        {
-            string tempDirectory = Path.GetTempPath();
-            string fileName = Guid.NewGuid().ToString("N") + ".pdf";
-            return Path.Combine(tempDirectory, fileName);
-        }
-
-        public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
-        {
-            var templateCUdto = new TemplateCUdto
-            {
-                TicketsHandling = ticketHandling,
-                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling),
-            };
-
-            return templateCUdto;
-        }
 
         public async Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src)
         {
@@ -187,6 +169,24 @@ namespace Services
             }
         }
 
+        public string GetTemporaryPdfFilePath()
+        {
+            string tempDirectory = Path.GetTempPath();
+            string fileName = Guid.NewGuid().ToString("N") + ".pdf";
+            return Path.Combine(tempDirectory, fileName);
+        }
+
+        public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
+        {
+            var templateCUdto = new TemplateCUdto
+            {
+                TicketsHandling = ticketHandling,
+                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling),
+            };
+
+            return templateCUdto;
+        }
+
         #endregion database methods
 
         public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketHandling, string? backgroundImagePath)
@@ -229,6 +229,22 @@ namespace Services
             }
         }
 
+        private async Task DrawAd(PdfGraphics graphics, PdfPage page, string htmlContent, PointF origin, float scale, PdfFont font, TicketHandling ticketHandling)
+        {
+            // Extract the URL from the <img> tag, handle HTML entities and remove the <img> tag
+            string? imageUrl = ExtractImageUrl(htmlContent);
+            htmlContent = HandleHtmlEntities(htmlContent);
+            htmlContent = RemoveImageTag(htmlContent);
+
+            PointF adPosition = CalculateAdPosition(origin, scale, ticketHandling);
+
+            DrawHtmlContent(graphics, page, htmlContent, font, adPosition);
+            if (!string.IsNullOrEmpty(imageUrl))
+            {
+                await DrawAdImage(graphics, imageUrl, adPosition, scale);
+            }
+        }
+
         private void DrawBackgroundImage(PdfPage page, string imagePath, PointF origin, float scale)
         {
             using FileStream imageStream = new FileStream(imagePath, FileMode.Open, FileAccess.Read);
@@ -237,17 +253,77 @@ namespace Services
             page.Graphics.DrawImage(background, origin.X, origin.Y, 1024 * scale, 364 * scale);
         }
 
-        private void DrawTextIfCondition(PdfGraphics graphics, bool condition, object? value, PointF origin, float scale, float? positionX, float? positionY, PdfFont font, string? format = null)
+        private void DrawBarcodeOrQRCode(PdfPage page, PointF origin, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
         {
-            if (condition && value != null)
+            PointF barCodePosition = CalculateBarcodePosition(origin, scale, ticketHandling);
+            if (ticketHandling.UseQRCode)
             {
+                DrawQRCode(page.Graphics, barCodePosition, scale, ticketData);
+            }
+            else
+            {
+                DrawBarcode(page.Graphics, barCodePosition, scale, ticketHandling, ticketData);
+            }
+        }
+
+        private void DrawCustomTextElements(PdfGraphics graphics, TicketHandling ticketHandling, PointF origin, float scale)
+        {
+            if (ticketHandling.CustomTextElements == null)
+            {
+                return;
+            }
+            foreach (var customTextElement in ticketHandling.CustomTextElements)
+            {
+                // Skip if the current CustomTextElement or its Text property is null or empty
+                if (customTextElement == null || string.IsNullOrEmpty(customTextElement.Text))
+                {
+                    continue;
+                }
+
+                // Create a font for the custom text
+                float fontSize = customTextElement.FontSize.HasValue ? customTextElement.FontSize.Value : 10f;
+                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, fontSize);
+
+                // Initialize default color as black in case of null or invalid color string
+                PdfColor color = new PdfColor(0, 0, 0);
+
+                // Check if the color string is properly formatted before attempting to convert it
+                if (!string.IsNullOrEmpty(customTextElement.Color) && customTextElement.Color.StartsWith("#") && customTextElement.Color.Length == 7)
+                {
+                    color = new PdfColor(
+                        Convert.ToByte(customTextElement.Color.Substring(1, 2), 16),
+                        Convert.ToByte(customTextElement.Color.Substring(3, 2), 16),
+                        Convert.ToByte(customTextElement.Color.Substring(5, 2), 16));
+                }
+
+                // Create a brush with the color
+                PdfBrush customBrush = new PdfSolidBrush(color);
+
+                // Calculate position based on scale and origin, providing a default value if the nullable float is null
                 PointF position = new PointF(
-                    origin.X + (positionX ?? 0) * scale,
-                    origin.Y + (positionY ?? 0) * scale);
-                string text = value is IFormattable formattableValue
-                    ? formattableValue.ToString(format, CultureInfo.InvariantCulture)
-                    : value?.ToString() ?? string.Empty;
-                graphics.DrawString(text, font, PdfBrushes.Black, position);
+                    origin.X + (customTextElement.PositionX ?? 0) * scale, // if PositionX is null, default to 0
+                    origin.Y + (customTextElement.PositionY ?? 0) * scale  // if PositionY is null, default to 0
+                );
+
+                // Draw the text
+                graphics.DrawString(customTextElement.Text, customFont, customBrush, position);
+            }
+        }
+
+        private void DrawScissorsLine(PdfGraphics graphics, PointF origin, float scale, TicketHandling ticketHandling)
+        {
+            if (ticketHandling.IncludeScissorsLine)
+            {
+                using FileStream scissorsImageStream = new FileStream(_scissorsLineImagePath, FileMode.Open, FileAccess.Read);
+                PdfBitmap scissorsLineImage = new PdfBitmap(scissorsImageStream);
+
+                PointF scissorsPosition = new PointF(
+                origin.X, // Aligned with the left edge of the ticket
+                origin.Y + 364 * scale + 10 * scale // Just below the ticket, 10 units of space
+                );
+                SizeF scissorsSize = new SizeF(1024 * scale, scissorsLineImage.Height * scale); // Full width and scaled height
+
+                graphics.DrawImage(scissorsLineImage, scissorsPosition, scissorsSize);
             }
         }
 
@@ -314,64 +390,17 @@ namespace Services
             _logger.LogInformation("DrawTextContent method exited");
         }
 
-        private void DrawCustomTextElements(PdfGraphics graphics, TicketHandling ticketHandling, PointF origin, float scale)
+        private void DrawTextIfCondition(PdfGraphics graphics, bool condition, object? value, PointF origin, float scale, float? positionX, float? positionY, PdfFont font, string? format = null)
         {
-            if (ticketHandling.CustomTextElements == null)
+            if (condition && value != null)
             {
-                return;
-            }
-            foreach (var customTextElement in ticketHandling.CustomTextElements)
-            {
-                // Skip if the current CustomTextElement or its Text property is null or empty
-                if (customTextElement == null || string.IsNullOrEmpty(customTextElement.Text))
-                {
-                    continue;
-                }
-
-                // Create a font for the custom text
-                float fontSize = customTextElement.FontSize.HasValue ? customTextElement.FontSize.Value : 10f;
-                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, fontSize);
-
-                // Initialize default color as black in case of null or invalid color string
-                PdfColor color = new PdfColor(0, 0, 0);
-
-                // Check if the color string is properly formatted before attempting to convert it
-                if (!string.IsNullOrEmpty(customTextElement.Color) && customTextElement.Color.StartsWith("#") && customTextElement.Color.Length == 7)
-                {
-                    color = new PdfColor(
-                        Convert.ToByte(customTextElement.Color.Substring(1, 2), 16),
-                        Convert.ToByte(customTextElement.Color.Substring(3, 2), 16),
-                        Convert.ToByte(customTextElement.Color.Substring(5, 2), 16));
-                }
-
-                // Create a brush with the color
-                PdfBrush customBrush = new PdfSolidBrush(color);
-
-                // Calculate position based on scale and origin, providing a default value if the nullable float is null
                 PointF position = new PointF(
-                    origin.X + (customTextElement.PositionX ?? 0) * scale, // if PositionX is null, default to 0
-                    origin.Y + (customTextElement.PositionY ?? 0) * scale  // if PositionY is null, default to 0
-                );
-
-                // Draw the text
-                graphics.DrawString(customTextElement.Text, customFont, customBrush, position);
-            }
-        }
-
-        private void DrawScissorsLine(PdfGraphics graphics, PointF origin, float scale, TicketHandling ticketHandling)
-        {
-            if (ticketHandling.IncludeScissorsLine)
-            {
-                using FileStream scissorsImageStream = new FileStream(_scissorsLineImagePath, FileMode.Open, FileAccess.Read);
-                PdfBitmap scissorsLineImage = new PdfBitmap(scissorsImageStream);
-
-                PointF scissorsPosition = new PointF(
-                origin.X, // Aligned with the left edge of the ticket
-                origin.Y + 364 * scale + 10 * scale // Just below the ticket, 10 units of space
-                );
-                SizeF scissorsSize = new SizeF(1024 * scale, scissorsLineImage.Height * scale); // Full width and scaled height
-
-                graphics.DrawImage(scissorsLineImage, scissorsPosition, scissorsSize);
+                    origin.X + (positionX ?? 0) * scale,
+                    origin.Y + (positionY ?? 0) * scale);
+                string text = value is IFormattable formattableValue
+                    ? formattableValue.ToString(format, CultureInfo.InvariantCulture)
+                    : value?.ToString() ?? string.Empty;
+                graphics.DrawString(text, font, PdfBrushes.Black, position);
             }
         }
 
@@ -386,22 +415,6 @@ namespace Services
                 pageSize.Height - bottomTxtSize.Height - 30 * scale // 30 units from the bottom
             );
             graphics.DrawString(bottomTxt, bottomTxtFont, PdfBrushes.Black, bottomTxtPosition);
-        }
-
-        private async Task DrawAd(PdfGraphics graphics, PdfPage page, string htmlContent, PointF origin, float scale, PdfFont font, TicketHandling ticketHandling)
-        {
-            // Extract the URL from the <img> tag, handle HTML entities and remove the <img> tag
-            string? imageUrl = ExtractImageUrl(htmlContent);
-            htmlContent = HandleHtmlEntities(htmlContent);
-            htmlContent = RemoveImageTag(htmlContent);
-
-            PointF adPosition = CalculateAdPosition(origin, scale, ticketHandling);
-
-            DrawHtmlContent(graphics, page, htmlContent, font, adPosition);
-            if (!string.IsNullOrEmpty(imageUrl))
-            {
-                await DrawAdImage(graphics, imageUrl, adPosition, scale);
-            }
         }
 
         private string? ExtractImageUrl(string htmlContent)
@@ -431,19 +444,6 @@ namespace Services
             return Regex.Replace(htmlContent, "<img.+?>", "", RegexOptions.IgnoreCase);
         }
 
-        private void DrawBarcodeOrQRCode(PdfPage page, PointF origin, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
-        {
-            PointF barCodePosition = CalculateBarcodePosition(origin, scale, ticketHandling);
-            if (ticketHandling.UseQRCode)
-            {
-                DrawQRCode(page.Graphics, barCodePosition, scale, ticketData);
-            }
-            else
-            {
-                DrawBarcode(page.Graphics, barCodePosition, scale, ticketHandling, ticketData);
-            }
-        }
-
         private async Task SaveDocumentAsync(PdfDocument document, string outputPath)
         {
             try
@@ -471,11 +471,12 @@ namespace Services
             );
         }
 
-        private void DrawHtmlContent(PdfGraphics graphics, PdfPage page, string htmlContent, PdfFont font, PointF adPosition)
+        private PointF CalculateBarcodePosition(PointF origin, float scale, TicketHandling ticketHandling)
         {
-            RectangleF rect = new RectangleF(adPosition.X, adPosition.Y, page.GetClientSize().Width, page.GetClientSize().Height);
-            PdfHTMLTextElement htmlTextElement = new PdfHTMLTextElement(htmlContent, font, PdfBrushes.Black);
-            htmlTextElement.Draw(graphics, rect);
+            return new PointF(
+                origin.X + (ticketHandling.BarcodePositionX.HasValue ? ticketHandling.BarcodePositionX.Value : 825) * scale,
+                origin.Y + (ticketHandling.BarcodePositionY.HasValue ? ticketHandling.BarcodePositionY.Value : 320) * scale
+            );
         }
 
         private async Task DrawAdImage(PdfGraphics graphics, string imageUrl, PointF adPosition, float scale)
@@ -488,24 +489,6 @@ namespace Services
             SizeF imageSize = new SizeF(image.Width * scale, image.Height * scale);
             PointF imagePosition = new PointF(adPosition.X, adPosition.Y + imageSize.Height * scale);
             graphics.DrawImage(image, imagePosition, imageSize);
-        }
-
-        private PointF CalculateBarcodePosition(PointF origin, float scale, TicketHandling ticketHandling)
-        {
-            return new PointF(
-                origin.X + (ticketHandling.BarcodePositionX.HasValue ? ticketHandling.BarcodePositionX.Value : 825) * scale,
-                origin.Y + (ticketHandling.BarcodePositionY.HasValue ? ticketHandling.BarcodePositionY.Value : 320) * scale
-            );
-        }
-
-        private void DrawQRCode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketsDataDto ticketData)
-        {
-            PdfQRBarcode qrCode = new PdfQRBarcode
-            {
-                Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod,
-                Size = new SizeF(450 * scale, 205 * scale)
-            };
-            qrCode.Draw(graphics, barcodePosition);
         }
 
         private void DrawBarcode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
@@ -528,6 +511,23 @@ namespace Services
             {
                 barcode.Draw(graphics, barcodePosition);
             }
+        }
+
+        private void DrawHtmlContent(PdfGraphics graphics, PdfPage page, string htmlContent, PdfFont font, PointF adPosition)
+        {
+            RectangleF rect = new RectangleF(adPosition.X, adPosition.Y, page.GetClientSize().Width, page.GetClientSize().Height);
+            PdfHTMLTextElement htmlTextElement = new PdfHTMLTextElement(htmlContent, font, PdfBrushes.Black);
+            htmlTextElement.Draw(graphics, rect);
+        }
+
+        private void DrawQRCode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketsDataDto ticketData)
+        {
+            PdfQRBarcode qrCode = new PdfQRBarcode
+            {
+                Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod,
+                Size = new SizeF(450 * scale, 205 * scale)
+            };
+            qrCode.Draw(graphics, barcodePosition);
         }
 
         #endregion Helper methods

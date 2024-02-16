@@ -2,12 +2,6 @@
 {
     public class TicketTemplate : ITicketTemplate
     {
-        public virtual Guid TicketTemplateId { get; set; }
-
-        public virtual TicketHandling TicketsHandling { get; set; } = new TicketHandling();
-
-        public virtual int ShowEventInfo { get; set; }
-
         public TicketTemplate()
         { }
 
@@ -22,5 +16,9 @@
             TicketsHandling = dto.TicketsHandling ?? TicketsHandling;
             ShowEventInfo = dto.ShowEventInfo;
         }
+
+        public virtual int ShowEventInfo { get; set; }
+        public virtual TicketHandling TicketsHandling { get; set; } = new TicketHandling();
+        public virtual Guid TicketTemplateId { get; set; }
     }
 }

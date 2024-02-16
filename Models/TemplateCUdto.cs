@@ -2,11 +2,6 @@
 {
     public class TemplateCUdto
     {
-        public Guid TicketTemplateId { get; set; }
-        public TicketHandling TicketsHandling { get; set; } = new TicketHandling();
-        public string? TicketHandlingJson { get; set; }
-        public int ShowEventInfo { get; set; }
-
         public TemplateCUdto()
         { }
 
@@ -20,5 +15,10 @@
             TicketsHandling = org.TicketsHandling ?? new TicketHandling();
             ShowEventInfo = org.ShowEventInfo;
         }
+
+        public int ShowEventInfo { get; set; }
+        public string? TicketHandlingJson { get; set; }
+        public TicketHandling TicketsHandling { get; set; } = new TicketHandling();
+        public Guid TicketTemplateId { get; set; }
     }
 }

@@ -9,49 +9,25 @@ namespace AppPdfTemplateWApi.Controllers
     [Route("api/[controller]/[action]")]
     public class PdfTemplateController : ControllerBase
     {
+        private readonly IFileService _fileService;
         private readonly ILogger<PdfTemplateController> _logger;
         private readonly IPdfTemplateService _pdfService;
-        private readonly IFileService _fileService;
 
-        public PdfTemplateController(ILogger<PdfTemplateController> logger,
-                                     IPdfTemplateService pdfTemplateService,
-                                     IFileService fileService)
+        public PdfTemplateController(IFileService fileService,
+                                     ILogger<PdfTemplateController> logger,
+                                     IPdfTemplateService pdfTemplateService)
         {
+            _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _pdfService = pdfTemplateService ?? throw new ArgumentNullException(nameof(pdfTemplateService));
-            _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
-        }
-
-        //POST: api/pdftemplate/GetPredefinedTemplate/{showEventInfo}
-        [HttpPost("GetPredefinedTemplate")]
-        public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
-        {
-            if (bgFile == null || bgFile.Length == 0)
-            {
-                return BadRequestResponse("Background file missing or empty.");
-            }
-
-            try
-            {
-                var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, ticketId, bgFile);
-                return FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFoundResponse(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                return InternalServerErrorResponse(ex);
-            }
         }
 
         [HttpPost("CreateTemplate")]
         public async Task<IActionResult> CreateTemplate([FromForm] TicketHandling ticketHandling,
-                                                        IFormFile bgFile,
-                                                        [FromForm] string? customTextElementsJson,
-                                                        int ticketId,
-                                                        bool saveToDb = false)
+                                                                IFormFile bgFile,
+                                                                [FromForm] string? customTextElementsJson,
+                                                                int ticketId,
+                                                                bool saveToDb = false)
         {
             if (!TryDeserializeCustomTextElements(customTextElementsJson, out var customTextElements))
             {
@@ -94,6 +70,30 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
+        //POST: api/pdftemplate/GetPredefinedTemplate/{showEventInfo}
+        [HttpPost("GetPredefinedTemplate")]
+        public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
+        {
+            if (bgFile == null || bgFile.Length == 0)
+            {
+                return BadRequestResponse("Background file missing or empty.");
+            }
+
+            try
+            {
+                var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, ticketId, bgFile);
+                return FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFoundResponse(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerErrorResponse(ex);
+            }
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetTicketTemplate()
         {
@@ -115,16 +115,15 @@ namespace AppPdfTemplateWApi.Controllers
             return BadRequest(new { message });
         }
 
-        private IActionResult NotFoundResponse(string message)
+        private async Task CleanUpFiles(params string[] filePaths)
         {
-            _logger.LogWarning(message);
-            return NotFound(new { message });
-        }
-
-        private IActionResult InternalServerErrorResponse(Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred");
-            return StatusCode(500, new { message = "An error occurred", error = ex.InnerException });
+            foreach (var filePath in filePaths)
+            {
+                if (_fileService.Exists(filePath))
+                {
+                    await _fileService.DeleteAsync(filePath);
+                }
+            }
         }
 
         private FileResult FileResultFromBytes(byte[] fileBytes, string fileName)
@@ -133,26 +132,16 @@ namespace AppPdfTemplateWApi.Controllers
             return File(fileBytes, "application/pdf", fileName);
         }
 
-        private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements)
+        private IActionResult InternalServerErrorResponse(Exception ex)
         {
-            elements = null;
+            _logger.LogError(ex, "An error occurred");
+            return StatusCode(500, new { message = "An error occurred", error = ex.InnerException });
+        }
 
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                elements = new List<CustomTextElement>();
-                return true;
-            }
-            try
-            {
-                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json);
-                elements ??= new List<CustomTextElement>();
-                return true;
-            }
-            catch (JsonSerializationException ex)
-            {
-                _logger.LogError(ex, "Error deserializing customTextElementsJson");
-                return false;
-            }
+        private IActionResult NotFoundResponse(string message)
+        {
+            _logger.LogWarning(message);
+            return NotFound(new { message });
         }
 
         private async Task<byte[]> ProcessPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
@@ -217,14 +206,25 @@ namespace AppPdfTemplateWApi.Controllers
             return pdfBytes;
         }
 
-        private async Task CleanUpFiles(params string[] filePaths)
+        private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements)
         {
-            foreach (var filePath in filePaths)
+            elements = null;
+
+            if (string.IsNullOrWhiteSpace(json))
             {
-                if (_fileService.Exists(filePath))
-                {
-                    await _fileService.DeleteAsync(filePath);
-                }
+                elements = new List<CustomTextElement>();
+                return true;
+            }
+            try
+            {
+                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json);
+                elements ??= new List<CustomTextElement>();
+                return true;
+            }
+            catch (JsonSerializationException ex)
+            {
+                _logger.LogError(ex, "Error deserializing customTextElementsJson");
+                return false;
             }
         }
     }

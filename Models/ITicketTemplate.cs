@@ -2,8 +2,8 @@
 {
     public interface ITicketTemplate
     {
-        Guid TicketTemplateId { get; set; }
-        TicketHandling TicketsHandling { get; set; }
         int ShowEventInfo { get; set; }
+        TicketHandling TicketsHandling { get; set; }
+        Guid TicketTemplateId { get; set; }
     }
 }

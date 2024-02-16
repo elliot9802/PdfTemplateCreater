@@ -2,13 +2,6 @@
 {
     public class CustomTextElement
     {
-        public string? Text { get; set; } // The text content of the element
-        public float? PositionX { get; set; } // X-coordinate position on the ticket
-        public float? PositionY { get; set; } // Y-coordinate position on the ticket
-        public float? FontSize { get; set; } = 10; // Default Font Size
-        public string? Color { get; set; }
-
-        // Constructor with parameters to quickly create a populated element
         public CustomTextElement(string? text, float? x, float? y, float? fontSize, string? color)
         {
             Text = text;
@@ -17,6 +10,14 @@
             FontSize = fontSize;
             Color = color;
         }
+
+        public string? Color { get; set; }
+        public float? FontSize { get; set; } = 10;
+        public float? PositionX { get; set; }
+
+        public float? PositionY { get; set; }
+
+        public string? Text { get; set; }
     }
 }
 

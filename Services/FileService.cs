@@ -39,6 +39,16 @@ namespace Services
             }
         }
 
+        public bool Exists(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                throw new ArgumentNullException(nameof(path), "Path cannot be null or empty.");
+            }
+
+            return File.Exists(path);
+        }
+
         public async Task<byte[]> ReadAllBytesAsync(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
@@ -55,16 +65,6 @@ namespace Services
                 _logger.LogError(ex, $"Failed to write bytes to file at path: {path}");
                 throw;
             }
-        }
-
-        public bool Exists(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                throw new ArgumentNullException(nameof(path), "Path cannot be null or empty.");
-            }
-
-            return File.Exists(path);
         }
     }
 }

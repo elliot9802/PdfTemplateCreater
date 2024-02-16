@@ -7,8 +7,8 @@
     {
         Task DeleteAsync(string path);
 
-        Task<byte[]> ReadAllBytesAsync(string path);
-
         bool Exists(string path);
+
+        Task<byte[]> ReadAllBytesAsync(string path);
     }
 }

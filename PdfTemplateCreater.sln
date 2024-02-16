@@ -15,7 +15,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DbModels", "DbModels\DbMode
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrontendEditor", "FrontendEditor\FrontendEditor.csproj", "{64799B82-823E-45BE-AFEF-E852D79D78AD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Configuration", "Configuration\Configuration.csproj", "{5E62503D-43FB-4353-8833-96E6FD6E2594}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Configuration", "Configuration\Configuration.csproj", "{5E62503D-43FB-4353-8833-96E6FD6E2594}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppBlazor", "AppBlazor\AppBlazor.csproj", "{544F967F-B61B-495C-9779-B3D4C7E33BA8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -51,6 +53,10 @@ Global
 		{5E62503D-43FB-4353-8833-96E6FD6E2594}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5E62503D-43FB-4353-8833-96E6FD6E2594}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5E62503D-43FB-4353-8833-96E6FD6E2594}.Release|Any CPU.Build.0 = Release|Any CPU
+		{544F967F-B61B-495C-9779-B3D4C7E33BA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{544F967F-B61B-495C-9779-B3D4C7E33BA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{544F967F-B61B-495C-9779-B3D4C7E33BA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{544F967F-B61B-495C-9779-B3D4C7E33BA8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

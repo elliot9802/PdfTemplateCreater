@@ -1,5 +1,4 @@
-﻿using Configuration;
-using DbModels;
+﻿using DbModels;
 using Microsoft.EntityFrameworkCore;
 using static Configuration.AppConfig;
 
@@ -10,9 +9,12 @@ namespace DbContext
         public DbSet<TicketTemplateDbM> TicketTemplate { get; set; }
         public DbSet<TicketsDataDto> Vy_ShowTickets { get; set; }
 
-        public csMainDbContext() { }
+        public csMainDbContext()
+        { }
 
-        public csMainDbContext(DbContextOptions<csMainDbContext> options) : base(options) { }
+        public csMainDbContext(DbContextOptions<csMainDbContext> options) : base(options)
+        {
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -43,9 +45,12 @@ namespace DbContext
 
         public class SqlServerDbContext : csMainDbContext
         {
-            public SqlServerDbContext() { }
+            public SqlServerDbContext()
+            { }
 
-            public SqlServerDbContext(DbContextOptions<csMainDbContext> options) : base(options) { }
+            public SqlServerDbContext(DbContextOptions<csMainDbContext> options) : base(options)
+            {
+            }
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {

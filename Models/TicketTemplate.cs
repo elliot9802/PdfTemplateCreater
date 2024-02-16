@@ -6,9 +6,10 @@
 
         public virtual TicketHandling TicketsHandling { get; set; } = new TicketHandling();
 
-        public virtual int ShowEventInfo {  get; set; }
+        public virtual int ShowEventInfo { get; set; }
 
-        public TicketTemplate() { }
+        public TicketTemplate()
+        { }
 
         public TicketTemplate(TemplateCUdto dto)
         {

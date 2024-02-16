@@ -23,8 +23,8 @@ builder.Services.AddCors(options =>
                .WithHeaders("Content-Type");
     });
 });
-/* 
-CORS allows specific external origins access to your API via browsers. 
+/*
+CORS allows specific external origins access to your API via browsers.
 */
 
 var app = builder.Build();

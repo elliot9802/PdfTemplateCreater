@@ -17,8 +17,8 @@ namespace DbModels
         [NotMapped]
         public override TicketHandling TicketsHandling
         {
-            get => string.IsNullOrEmpty(TicketsHandlingJson) 
-                ? null 
+            get => string.IsNullOrEmpty(TicketsHandlingJson)
+                ? null
                 : JsonConvert.DeserializeObject<TicketHandling>(TicketsHandlingJson);
             set => TicketsHandlingJson = JsonConvert.SerializeObject(value);
         }
@@ -27,7 +27,8 @@ namespace DbModels
         public override int ShowEventInfo { get; set; }
 
         #region constructors
-        public TicketTemplateDbM() : base() 
+
+        public TicketTemplateDbM() : base()
         {
             TicketsHandlingJson = "{}";
         }
@@ -50,6 +51,7 @@ namespace DbModels
             TicketsHandling = org.TicketsHandling ?? new TicketHandling();
             ShowEventInfo = org.ShowEventInfo;
         }
-        #endregion
+
+        #endregion constructors
     }
 }

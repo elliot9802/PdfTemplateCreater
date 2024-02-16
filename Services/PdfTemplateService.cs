@@ -17,6 +17,7 @@ namespace Services
     public class PdfTemplateService : IPdfTemplateService
     {
         #region constructor logic
+
         private readonly ILogger<PdfTemplateService> _logger;
         private readonly string _dbLogin;
         private readonly string _backgroundImagePath;
@@ -33,9 +34,11 @@ namespace Services
             _backgroundImagePath = imagePaths.BackgroundImagePath ?? throw new KeyNotFoundException("BackgroundImagePath configuration is missing.");
             _scissorsLineImagePath = imagePaths.ScissorsLineImagePath ?? throw new KeyNotFoundException("ScissorsLineImagePath configuration is missing.");
         }
-        #endregion
+
+        #endregion constructor logic
 
         #region database methods
+
         public async Task<List<int>> ReadTemplatesAsync()
         {
             try
@@ -46,7 +49,6 @@ namespace Services
                     _logger.LogInformation($"Retrieved {templates.Count} templates");
                     return templates;
                 }
-
             }
             catch (Exception ex)
             {
@@ -96,7 +98,7 @@ namespace Services
                     _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
                     return null;
                 }
-                
+
                 return predefinedTemplate.TicketsHandling; // This now contains TicketHandling data.
             }
             catch (Exception ex)
@@ -105,10 +107,13 @@ namespace Services
                 throw;
             }
         }
-        #endregion
+
+        #endregion database methods
 
         #region Creating Pdf methods
+
         #region database methods
+
         public string GetTemporaryPdfFilePath()
         {
             string tempDirectory = Path.GetTempPath();
@@ -120,8 +125,8 @@ namespace Services
         {
             var templateCUdto = new TemplateCUdto
             {
-                TicketsHandling = ticketHandling, 
-                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling), 
+                TicketsHandling = ticketHandling,
+                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling),
             };
 
             return templateCUdto;
@@ -181,12 +186,14 @@ namespace Services
                 throw;
             }
         }
-        #endregion
-        public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketHandling, string? backgroundImagePath = null)
+
+        #endregion database methods
+
+        public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketHandling, string? backgroundImagePath)
         {
             try
             {
-                using PdfDocument document = new PdfDocument();
+                using PdfDocument document = new();
                 PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
                 PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
                 PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9);
@@ -237,8 +244,8 @@ namespace Services
                 PointF position = new PointF(
                     origin.X + (positionX ?? 0) * scale,
                     origin.Y + (positionY ?? 0) * scale);
-                string text = value is IFormattable formattableValue 
-                    ? formattableValue.ToString(format, CultureInfo.InvariantCulture) 
+                string text = value is IFormattable formattableValue
+                    ? formattableValue.ToString(format, CultureInfo.InvariantCulture)
                     : value?.ToString() ?? string.Empty;
                 graphics.DrawString(text, font, PdfBrushes.Black, position);
             }
@@ -371,7 +378,7 @@ namespace Services
         private void DrawVitec(PdfGraphics graphics, float scale)
         {
             string bottomTxt = "Powered by Vitec Smart Visitor System AB";
-            SizeF pageSize = graphics.ClientSize; 
+            SizeF pageSize = graphics.ClientSize;
             PdfFont bottomTxtFont = new PdfStandardFont(PdfFontFamily.Helvetica, 12, PdfFontStyle.Italic);
             SizeF bottomTxtSize = bottomTxtFont.MeasureString(bottomTxt);
             PointF bottomTxtPosition = new PointF(
@@ -436,7 +443,7 @@ namespace Services
                 DrawBarcode(page.Graphics, barCodePosition, scale, ticketHandling, ticketData);
             }
         }
-        
+
         private async Task SaveDocumentAsync(PdfDocument document, string outputPath)
         {
             try
@@ -451,18 +458,20 @@ namespace Services
                 throw;
             }
         }
-        #endregion
+
+        #endregion Creating Pdf methods
 
         #region Helper methods
+
         private PointF CalculateAdPosition(PointF origin, float scale, TicketHandling ticketHandling)
         {
             return new PointF(
-                origin.X + (ticketHandling.AdPositionX.HasValue ? ticketHandling.AdPositionX.Value : 0) * scale, 
+                origin.X + (ticketHandling.AdPositionX.HasValue ? ticketHandling.AdPositionX.Value : 0) * scale,
                 origin.Y + (ticketHandling.AdPositionY.HasValue ? ticketHandling.AdPositionY.Value : 500) * scale
             );
         }
 
-        private void DrawHtmlContent(PdfGraphics graphics, PdfPage page, string  htmlContent, PdfFont font, PointF adPosition)
+        private void DrawHtmlContent(PdfGraphics graphics, PdfPage page, string htmlContent, PdfFont font, PointF adPosition)
         {
             RectangleF rect = new RectangleF(adPosition.X, adPosition.Y, page.GetClientSize().Width, page.GetClientSize().Height);
             PdfHTMLTextElement htmlTextElement = new PdfHTMLTextElement(htmlContent, font, PdfBrushes.Black);
@@ -520,6 +529,7 @@ namespace Services
                 barcode.Draw(graphics, barcodePosition);
             }
         }
-        #endregion
+
+        #endregion Helper methods
     }
 }

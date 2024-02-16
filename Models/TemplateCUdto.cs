@@ -7,7 +7,8 @@
         public string? TicketHandlingJson { get; set; }
         public int ShowEventInfo { get; set; }
 
-        public TemplateCUdto() { }
+        public TemplateCUdto()
+        { }
 
         public TemplateCUdto(ITicketTemplate org)
         {

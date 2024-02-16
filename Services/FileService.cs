@@ -8,6 +8,7 @@ namespace Services
     public class FileService : IFileService
     {
         private readonly ILogger<FileService> _logger;
+
         public FileService(ILogger<FileService> logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));

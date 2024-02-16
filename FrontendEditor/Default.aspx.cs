@@ -5,15 +5,13 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
-using System.Web;
 using System.Web.UI;
 
 namespace FrontEndEditor
 {
     public partial class _Default : Page
     {
-        HttpClient client = new HttpClient();
+        private HttpClient client = new HttpClient();
 
         protected void Page_Load(object sender, EventArgs e)
         {
@@ -245,7 +243,7 @@ namespace FrontEndEditor
 
         protected async void btnSaveToDb_Click(object sender, EventArgs e)
         {
-            if (bgUploadFile!= null)
+            if (bgUploadFile != null)
             {
                 var content = new MultipartFormDataContent();
                 var fileContent = new StreamContent(bgUploadFile.PostedFile.InputStream);
@@ -308,7 +306,9 @@ namespace FrontEndEditor
             var ticketHandling = new TicketHandling()
             {
                 // Include properties
+
                 #region Include
+
                 IncludeStrukturArtikel = chkIncludeStrukturArtikel.Checked,
                 IncludeDescription = chkIncludeDescription.Checked,
                 IncludeArtNotText = chkIncludeArtNotText.Checked,
@@ -335,10 +335,13 @@ namespace FrontEndEditor
                 IncludeEntrance = chkIncludeEntrance.Checked,
                 IncludeWebbcode = chkIncludeWebbcode.Checked,
                 IncludeScissorsLine = chkIncludeScissorsLine.Checked,
-                #endregion
+
+                #endregion Include
 
                 //// Position properties
+
                 #region Position
+
                 ArtNrPositionX = TryParseFloat(txtArtNrPositionX.Text),
                 ArtNrPositionY = TryParseFloat(txtArtNrPositionY.Text),
                 PricePositionX = TryParseFloat(txtPricePositionX.Text),
@@ -391,7 +394,8 @@ namespace FrontEndEditor
                 WebbcodePositionY = TryParseFloat(txtWebbcodePositionY.Text),
                 BarcodePositionX = TryParseFloat(txtBarcodePositionX.Text),
                 BarcodePositionY = TryParseFloat(txtBarcodePositionY.Text),
-#endregion
+
+                #endregion Position
 
                 // Other properties
                 UseQRCode = chkUseQRCode.Checked,
@@ -418,7 +422,9 @@ namespace FrontEndEditor
         public class TicketHandling
         {
             // Properties for customization options
+
             #region Include
+
             public bool IncludeStrukturArtikel { get; set; }
             public bool IncludeDescription { get; set; }
             public bool IncludeArtNotText { get; set; }
@@ -445,10 +451,14 @@ namespace FrontEndEditor
             public bool IncludeEntrance { get; set; }
             public bool IncludeWebbcode { get; set; }
             public bool IncludeScissorsLine { get; set; }
-#endregion
-            #region Position 
+
+            #endregion Include
+
+            #region Position
+
             // Properties for positioning elements on the ticket
             public float? ArtNrPositionX { get; set; }
+
             public float? ArtNrPositionY { get; set; }
 
             public float? PricePositionX { get; set; }
@@ -525,7 +535,8 @@ namespace FrontEndEditor
 
             public float? BarcodePositionX { get; set; }
             public float? BarcodePositionY { get; set; }
-            #endregion
+
+            #endregion Position
 
             // Property to choose between QR code and Barcode
             public bool UseQRCode { get; set; }
@@ -536,10 +547,11 @@ namespace FrontEndEditor
             {
             }
         }
+
         public class CustomTextElement
         {
             public string Text { get; set; }
-            public float PositionX { get; set; } 
+            public float PositionX { get; set; }
             public float PositionY { get; set; }
             public float FontSize { get; set; } = 10;
             public string Color { get; set; }

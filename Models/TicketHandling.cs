@@ -3,16 +3,22 @@
     public class TicketHandling
     {
         // Properties for customization options
+
         #region Include
 
         #region bara 0
+
         public bool IncludeStrukturArtikel { get; set; }
-        #endregion
+
+        #endregion bara 0
 
         #region helt null
+
         public bool IncludeDescription { get; set; }
         public bool IncludeArtNotText { get; set; }
-        #endregion
+
+        #endregion helt null
+
         public bool IncludeRutBokstav { get; set; }
         public bool IncludeArtNr { get; set; } = true;
         public bool IncludePrice { get; set; } = true;
@@ -36,11 +42,14 @@
         public bool IncludeEntrance { get; set; } = true;
         public bool IncludeWebbcode { get; set; } = true;
         public bool IncludeScissorsLine { get; set; } = true;
-        #endregion
 
-        #region Position 
+        #endregion Include
+
+        #region Position
+
         // Properties for positioning elements on the ticket
         public float? ArtNrPositionX { get; set; }
+
         public float? ArtNrPositionY { get; set; }
 
         public float? PricePositionX { get; set; }
@@ -120,10 +129,12 @@
 
         public float? BarcodePositionX { get; set; }
         public float? BarcodePositionY { get; set; }
-        #endregion
+
+        #endregion Position
 
         // Property to choose between QR code and Barcode
         public bool UseQRCode { get; set; }
+
         public bool FlipBarcode { get; set; }
         public List<CustomTextElement>? CustomTextElements { get; set; } = new List<CustomTextElement>();
     }

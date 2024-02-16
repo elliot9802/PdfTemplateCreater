@@ -1,6 +1,4 @@
-﻿using System.Text.Json;
-using Microsoft.Extensions.Configuration;
-using System.IO;
+﻿using Microsoft.Extensions.Configuration;
 using Syncfusion.Licensing;
 
 namespace Configuration
@@ -49,7 +47,6 @@ namespace Configuration
                 }
             }
         }
-
 
         public static DbLoginDetail GetDbLoginDetails(string dbLoginKey)
         {

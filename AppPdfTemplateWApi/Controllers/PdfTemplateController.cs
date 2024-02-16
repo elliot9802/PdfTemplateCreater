@@ -216,6 +216,7 @@ namespace AppPdfTemplateWApi.Controllers
             await CleanUpFiles(outputPath, tempBgFilePath);
             return pdfBytes;
         }
+
         private async Task CleanUpFiles(params string[] filePaths)
         {
             foreach (var filePath in filePaths)

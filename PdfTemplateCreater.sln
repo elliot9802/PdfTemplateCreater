@@ -17,7 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FrontendEditor", "FrontendE
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Configuration", "Configuration\Configuration.csproj", "{5E62503D-43FB-4353-8833-96E6FD6E2594}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppBlazor", "AppBlazor\AppBlazor.csproj", "{544F967F-B61B-495C-9779-B3D4C7E33BA8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppBlazor", "AppBlazor\AppBlazor.csproj", "{544F967F-B61B-495C-9779-B3D4C7E33BA8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

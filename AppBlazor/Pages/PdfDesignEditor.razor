@@ -1,0 +1,140 @@
+﻿@page "/pdfdesigneditor"
+
+@using Models
+@using System.Text.RegularExpressions
+@using System.Reflection
+
+<div class="customtext-container">
+    <div class="form-group">
+        <button @onclick="AddCustomText" class="btn btn-primary btn-sm">
+            Add Custom Text
+        </button>
+    </div>
+
+    @foreach (var customText in customTexts)
+    {
+        <div class="custom-text-element">
+            <button @onclick="() => RemoveCustomText(customText)" class="btn btn-danger mb-2 btn-sm">Remove</button>
+
+            <div class="form-group">
+                <label>Text</label>
+                <input type="text" class="form-control mb-2" placeholder="Text" @bind="customText.Text">
+            </div>
+            <div class="form-group">
+                <label>X Position</label>
+                <input type="number" class="form-control mb-2" placeholder="X Position" @bind="customText.PositionX">
+            </div>
+            <div class="form-group">
+                <label>Y Position</label>
+                <input type="number" class="form-control mb-2" placeholder="Y Position" @bind="customText.PositionY">
+            </div>
+            <div class="form-group">
+                <label>Font Size</label>
+                <input type="number" class="form-control mb-2" placeholder="Font Size" @bind="customText.FontSize">
+            </div>
+            <div class="form-group">
+                <label>Color</label>
+                <input type="color" class="form-control mb-2" @bind="customText.Color">
+            </div>
+        </div>
+    }
+</div>
+
+<div class="scrollable-container customization-container">
+    @foreach (var includeProperty in ticketHandlingIncludeProperties)
+    {
+        <div class="form-group">
+            <div class="custom-control custom-checkbox">
+                <input type="checkbox" class="custom-control-input"
+                       checked="@(Convert.ToBoolean(includeProperty.GetValue(ticketHandling)))"
+                       @onchange="(e) => HandleCheckboxChange(e, includeProperty)"
+                       id="@includeProperty.Name" />
+                <label class="custom-control-label" for="@includeProperty.Name">@GetDisplayName(includeProperty.Name)</label>
+            </div>
+        </div>
+        {
+            var isChecked = (bool)includeProperty.GetValue(ticketHandling);
+            if (isChecked)
+            {
+                @foreach (var positionProperty in GetPositionPropertiesForInclude(includeProperty.Name))
+                {
+                    <div class="position-input-group">
+                        <label>@GetDisplayName(positionProperty.Name)</label>
+                        <input type="number" class="form-control mb-2"
+                               value="@positionProperty.GetValue(ticketHandling)?.ToString()"
+                               @oninput="eventArgs => UpdatePositionProperty(eventArgs, positionProperty.Name)" />
+                    </div>
+                }
+            }
+        }
+    }
+</div>
+
+<style>
+    .customization-container {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .position-input-group {
+        margin-top: 10px;
+    }
+</style>
+
+@code {
+    private TicketHandling ticketHandling = new TicketHandling();
+    private IEnumerable<PropertyInfo> ticketHandlingIncludeProperties;
+
+
+    protected override void OnInitialized()
+    {
+        ticketHandlingIncludeProperties = typeof(TicketHandling).GetProperties()
+            .Where(p => p.PropertyType == typeof(bool) && p.Name.StartsWith("Include"));
+    }
+    
+
+    private IEnumerable<PropertyInfo> GetPositionPropertiesForInclude(string includePropertyName)
+    {
+        var baseName = includePropertyName.Replace("Include", "");
+        return typeof(TicketHandling).GetProperties()
+            .Where(p => p.Name.Contains(baseName) && (p.Name.EndsWith("PositionX") || p.Name.EndsWith("PositionY")));
+    }
+
+    private void UpdatePositionProperty(ChangeEventArgs eventArgs, string propertyName)
+    {
+        if (float.TryParse(eventArgs.Value.ToString(), out var value))
+        {
+            var propertyInfo = typeof(TicketHandling).GetProperty(propertyName);
+            propertyInfo?.SetValue(ticketHandling, value);
+        }
+    }
+
+    private string GetDisplayName(string propertyName)
+    {
+        return Regex.Replace(propertyName, "(\\B[A-Z])", " $1").Replace("Include ", "");
+    }
+    
+    private List<CustomTextElement> customTexts = new List<CustomTextElement>();
+
+    private void AddCustomText()
+    {
+        customTexts.Add(new CustomTextElement(null, null, null, null, null));
+    }
+
+    private void RemoveCustomText(CustomTextElement customText)
+    {
+        customTexts.Remove(customText);
+    }
+
+    private void HandleCheckboxChange(ChangeEventArgs e, PropertyInfo propertyInfo)
+    {
+        if (e.Value is bool value)
+        {
+            propertyInfo.SetValue(ticketHandling, value);
+            StateHasChanged();
+        }
+    }
+}

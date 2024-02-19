@@ -19,29 +19,29 @@
 
         #endregion helt null
 
-        public bool IncludeAd { get; set; } = true;
-        public bool IncludeArtName { get; set; } = true;
-        public bool IncludeArtNr { get; set; } = true;
-        public bool IncludeBookingNr { get; set; } = true;
-        public bool IncludeChairNr { get; set; } = true;
-        public bool IncludeChairRow { get; set; } = true;
-        public bool IncludeContactPerson { get; set; } = true;
-        public bool IncludeDatum { get; set; } = true;
-        public bool IncludeEmail { get; set; } = true;
-        public bool IncludeEntrance { get; set; } = true;
-        public bool IncludeEventDate { get; set; } = true;
-        public bool IncludeEventName { get; set; } = true;
-        public bool IncludeFacilityName { get; set; } = true;
-        public bool IncludeLogorad1 { get; set; } = true;
-        public bool IncludeLogorad2 { get; set; } = true;
-        public bool IncludePrice { get; set; } = true;
+        public bool IncludeAd { get; set; }
+        public bool IncludeArtName { get; set; }
+        public bool IncludeArtNr { get; set; }
+        public bool IncludeBookingNr { get; set; }
+        public bool IncludeChairNr { get; set; }
+        public bool IncludeChairRow { get; set; }
+        public bool IncludeContactPerson { get; set; }
+        public bool IncludeDatum { get; set; }
+        public bool IncludeEmail { get; set; }
+        public bool IncludeEntrance { get; set; }
+        public bool IncludeEventDate { get; set; }
+        public bool IncludeEventName { get; set; }
+        public bool IncludeFacilityName { get; set; }
+        public bool IncludeLogorad1 { get; set; }
+        public bool IncludeLogorad2 { get; set; }
+        public bool IncludePrice { get; set; }
         public bool IncludeRutBokstav { get; set; }
-        public bool IncludeScissorsLine { get; set; } = true;
-        public bool IncludeSection { get; set; } = true;
-        public bool IncludeServiceFee { get; set; } = true;
-        public bool IncludeSubEventName { get; set; } = true;
-        public bool IncludeWebbcode { get; set; } = true;
-        public bool IncludeWebBookingNr { get; set; } = true;
+        public bool IncludeScissorsLine { get; set; }
+        public bool IncludeSection { get; set; }
+        public bool IncludeServiceFee { get; set; }
+        public bool IncludeSubEventName { get; set; }
+        public bool IncludeWebbcode { get; set; }
+        public bool IncludeWebBookingNr { get; set; }
 
         #endregion Include
 
@@ -92,8 +92,8 @@
         public float? Logorad1PositionY { get; set; }
         public float? Logorad2PositionX { get; set; }
         public float? Logorad2PositionY { get; set; }
-        public float? NamePositionX { get; set; }
-        public float? NamePositionY { get; set; }
+        public float? ContactPersonPositionX { get; set; }
+        public float? ContactPersonPositionY { get; set; }
         public float? PricePositionX { get; set; }
         public float? PricePositionY { get; set; }
 

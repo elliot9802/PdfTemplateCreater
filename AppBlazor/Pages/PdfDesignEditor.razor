@@ -1,8 +1,24 @@
 ﻿@page "/pdfdesigneditor"
 
 @using Models
+@using DbModels
+@using Services
 @using System.Text.RegularExpressions
 @using System.Reflection
+@using Newtonsoft.Json
+@using System.Net.Http.Headers
+@inject HttpClient httpClient
+@inject IJSRuntime JSRuntime
+
+<InputFile OnChange="HandleFileSelected" />
+<div>
+    <label>Ticket ID:</label>
+    <input @bind="ticketId" />
+</div>
+<div>
+    <label>Show Event Info:</label>
+    <input @bind="showEventInfo" />
+</div>
 
 <div class="customtext-container">
     <div class="form-group">
@@ -70,6 +86,12 @@
     }
 </div>
 
+<div class="mt-3">
+    <button class="btn btn-info" @onclick="CreatePdf">Preview</button>
+    <button class="btn btn-success" @onclick="CreateTemplate">Save</button>
+</div>
+
+
 <style>
     .customization-container {
         max-height: 200px;
@@ -84,17 +106,77 @@
     }
 </style>
 
-@code {
-    private TicketHandling ticketHandling = new TicketHandling();
-    private IEnumerable<PropertyInfo> ticketHandlingIncludeProperties;
+@if (pdfBase64 != null)
+{
+    <div>
+        <iframe width="100%" height="500px" src="@($"data:application/pdf;base64,{pdfBase64}")"></iframe>
+    </div>
+}
 
+@if (ShowNotification)
+{
+    <div class="notification" style="position: fixed; bottom: 20px; right: 20px; width: 300px; padding: 10px; color: white; background-color: @BackgroundColor;">
+        <span>@Message</span>
+        <button class="btn-close" style="float: right; color: white;" @onclick="() => ShowNotification = false"></button>
+    </div>
+}
+@code {
+    [Parameter]
+    public bool ShowNotification { get; set; }
+
+    [Parameter]
+    public string Message { get; set; } = string.Empty;
+
+    [Parameter]
+    public string BackgroundColor { get; set; } = "#007bff";
+
+    public void ShowSuccess(string message)
+    {
+        Message = message;
+        BackgroundColor = "#28a745"; // Green for success
+        ShowNotification = true;
+    }
+
+    public void ShowError(string message)
+    {
+        Message = message;
+        BackgroundColor = "#dc3545"; // Red for error
+        ShowNotification = true;
+    }
+    private int ticketId;
+    private int showEventInfo;
+    private ByteArrayContent bgFileStreamContent;
+    private TicketHandling ticketHandling = new();
+    private List<CustomTextElement> customTexts = new List<CustomTextElement>();
+    private IEnumerable<PropertyInfo> ticketHandlingIncludeProperties;
+    private ByteArrayContent bgFileContent;
+    private string pdfBase64;
+    private MultipartFormDataContent content = new MultipartFormDataContent();
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            using var stream = file.OpenReadStream();
+            byte[] buffer = new byte[file.Size];
+            await stream.ReadAsync(buffer, 0, buffer.Length);
+            var fileContent = new ByteArrayContent(buffer);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+                {
+                    Name = "bgFile",
+                    FileName = file.Name
+                };
+            content.Add(fileContent, "bgFile", file.Name);
+        }
+    }
 
     protected override void OnInitialized()
     {
         ticketHandlingIncludeProperties = typeof(TicketHandling).GetProperties()
             .Where(p => p.PropertyType == typeof(bool) && p.Name.StartsWith("Include"));
     }
-    
 
     private IEnumerable<PropertyInfo> GetPositionPropertiesForInclude(string includePropertyName)
     {
@@ -117,24 +199,106 @@
         return Regex.Replace(propertyName, "(\\B[A-Z])", " $1").Replace("Include ", "");
     }
     
-    private List<CustomTextElement> customTexts = new List<CustomTextElement>();
-
-    private void AddCustomText()
-    {
-        customTexts.Add(new CustomTextElement(null, null, null, null, null));
-    }
-
-    private void RemoveCustomText(CustomTextElement customText)
-    {
-        customTexts.Remove(customText);
-    }
+    private void AddCustomText() => customTexts.Add(new CustomTextElement(null, null, null, null, null));
+    private void RemoveCustomText(CustomTextElement customText) => customTexts.Remove(customText);
 
     private void HandleCheckboxChange(ChangeEventArgs e, PropertyInfo propertyInfo)
     {
-        if (e.Value is bool value)
+        if (bool.TryParse(e.Value?.ToString(), out var result))
         {
-            propertyInfo.SetValue(ticketHandling, value);
+            propertyInfo.SetValue(ticketHandling, result);
             StateHasChanged();
         }
     }
+
+    private async Task CreateTemplate()
+    {
+        var content = new MultipartFormDataContent();
+        if (bgFileContent != null)
+        {
+            content.Add(bgFileContent, "bgFile");
+        }
+
+        content.Add(new StringContent(ticketId.ToString()), "ticketId");
+        content.Add(new StringContent(showEventInfo.ToString()), "showEventInfo");
+
+        var response = await httpClient.PostAsync($"api/PdfTemplate/CreateTemplate", content);
+        if (response.IsSuccessStatusCode)
+        {
+            await JSRuntime.InvokeVoidAsync("$('.toast').toast('show')");
+        }
+        else
+        {
+            throw new HttpRequestException($"Failed with status code: {response.StatusCode}");
+        }
+    }
+
+    private async Task CreatePdf()
+    {
+        var content = new MultipartFormDataContent();
+        if (bgFileContent != null)
+        {
+            content.Add(bgFileContent, "bgFile");
+        }
+
+        content.Add(new StringContent(ticketId.ToString()), "ticketId");
+        content.Add(new StringContent(showEventInfo.ToString()), "showEventInfo");
+
+        var response = await httpClient.PostAsync($"api/PdfTemplate/CreatePdf", content);
+        if (response.IsSuccessStatusCode)
+        {
+            var pdfData = await response.Content.ReadAsByteArrayAsync();
+            pdfBase64 = Convert.ToBase64String(pdfData);
+        }
+        else
+        {
+            throw new HttpRequestException($"Failed with status code: {response.StatusCode}");
+        }
+    }
+
+    private async Task DeleteTemplateAsync(string templateId)
+    {
+        try
+        {
+            var response = await httpClient.DeleteAsync($"api/PdfTemplate/DeleteTicketTemplate/{templateId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("bootstrap.Toast.getOrCreateInstance(document.getElementById('successToast')).show");
+            }
+            else
+            {
+                throw new HttpRequestException($"Failed with status code: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting template: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("bootstrap.Toast.getOrCreateInstance(document.getElementById('errorToast')).show");
+        }
+    }
+
+
+    private async Task GetPredefinedTemplateAsync(int showEventInfo, int ticketId)
+    {
+        try
+        {
+            var response = await httpClient.PostAsync($"api/PdfTemplate/GetPredefinedTemplate?showEventInfo={showEventInfo}&ticketId={ticketId}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var pdfBytes = await response.Content.ReadAsByteArrayAsync();
+                pdfBase64 = Convert.ToBase64String(pdfBytes);
+                await JSRuntime.InvokeVoidAsync("bootstrap.Toast.getOrCreateInstance(document.getElementById('successToast')).show");
+            }
+            else
+            {
+                throw new HttpRequestException($"Failed with status code: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error fetching predefined template: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("bootstrap.Toast.getOrCreateInstance(document.getElementById('errorToast')).show");
+        }
+    }
+
 }

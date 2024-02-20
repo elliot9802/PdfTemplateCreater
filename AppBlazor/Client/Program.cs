@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Services;
 
 namespace AppBlazor
 {
@@ -12,6 +13,8 @@ namespace AppBlazor
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            builder.Services.AddScoped<IPdfTemplateService, PdfTemplateService>();
+
 
             await builder.Build().RunAsync();
         }

@@ -1,0 +1,298 @@
+﻿@page "/create-template"
+@using Models
+@inject HttpClient HttpClient
+@using System.Net.Http.Headers
+@using Newtonsoft.Json
+@using System.Text
+@using System.Text.RegularExpressions
+@using System.Reflection
+
+<!-- File Upload Section -->
+<InputFile OnChange="HandleFileSelected" />
+
+<div class="customtext-container mt-2">
+    <div class="form-group">
+        <button @onclick="AddCustomText" class="btn btn-primary btn-sm">
+            Add Custom Text
+        </button>
+    </div>
+
+    @foreach (var customText in customTexts)
+    {
+        <div class="custom-text-element">
+            @if (customText.IsInEditMode)
+            {
+                <!-- Use Bootstrap's row and col classes to organize the layout -->
+                <div class="row">
+                    <div class="col-sm-6 col-md-4">
+                        <div class="form-group">
+                            <label>Text</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="Text" @bind="customText.Text">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>X Position</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="X Position" @bind="customText.PositionX">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>Y Position</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="Y Position" @bind="customText.PositionY">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>Font Size</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="Font Size" @bind="customText.FontSize">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>Color</label>
+                            <input type="color" class="form-control form-control-sm" @bind="customText.Color">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button @onclick="() => ToggleEditMode(customText, false)" class="btn btn-primary btn-sm">OK</button>
+                    <button @onclick="() => RemoveCustomText(customText)" class="btn btn-danger btn-sm">Del</button>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <div class="col">
+                        <span>@customText.Text</span>
+                        <button @onclick="() => ToggleEditMode(customText, true)" class="btn btn-info btn-sm">Edit</button>
+                        <button @onclick="() => RemoveCustomText(customText)" class="btn btn-danger btn-sm">Del</button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+
+<!-- Dynamic Form Generation Section -->
+<div class="scrollable-container customization-container">
+    <div class="row">
+        @foreach (var group in propertyGroups)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="form-group">
+                    <input type="checkbox" class="custom-control-input"
+                           checked="@Convert.ToBoolean(group.IncludeProperty.GetValue(ticketHandling))"
+                    @onchange="e => HandleCheckboxChange(e, group.IncludeProperty)"
+                           id="@group.IncludeProperty.Name" />
+                    <label class="custom-control-label" for="@group.IncludeProperty.Name">@GetDisplayName(group.IncludeProperty.Name)</label>
+                </div>
+
+                @if (Convert.ToBoolean(group.IncludeProperty.GetValue(ticketHandling)))
+                {
+                    foreach (var positionProperty in group.PositionProperties)
+                    {
+                        <div class="position-input-group">
+                            <label>@GetDisplayName(positionProperty.Name)</label>
+                            <input type="number" class="form-control form-control-sm mb-2"
+                                   value="@positionProperty.GetValue(ticketHandling)?.ToString()"
+                            @oninput="e => HandleInputChange(e, positionProperty)" />
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+    <!-- Additional Options -->
+    <div class="row additional-options">
+        <div class="col-sm-4">
+            <div class="form-group">
+                <input type="checkbox" @bind="ticketHandling.AddScissorsLine" id="AddScissorsLine" />
+                <label for="AddScissorsLine">Add Scissors Line</label>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="form-group">
+                <input type="checkbox" @bind="ticketHandling.FlipBarcode" id="FlipBarcode" />
+                <label for="FlipBarcode">Flip Barcode</label>
+            </div>
+        </div>
+        <div class="col-sm-4">
+            <div class="form-group">
+                <input type="checkbox" @bind="ticketHandling.UseQRCode" id="UseQRCode" />
+                <label for="UseQRCode">Use QR Code</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Action Buttons -->
+<button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm">Preview PDF</button>
+<button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm">Save PDF Template</button>
+
+<!-- PDF Preview Section -->
+@if (!string.IsNullOrEmpty(pdfBase64))
+{
+    <object data="@($"data:application/pdf;base64,{pdfBase64}")" type="application/pdf" width="100%" height="500px">
+        <p>This browser does not support PDFs. Please download the PDF to view it: <a href="@($"data:application/pdf;base64,{pdfBase64}")" download="document.pdf">Download PDF</a>.</p>
+    </object>
+}
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="validation-message" role="alert">
+        @ErrorMessage
+    </div>
+}
+
+@code {
+    // Class Members
+    public string ErrorMessage { get; set; }
+    private ByteArrayContent bgFileContent;
+    private string pdfBase64;
+    private TicketHandling ticketHandling = new TicketHandling();
+    private List<PropertyGroup> propertyGroups;
+    private List<CustomTextElement> customTexts = new List<CustomTextElement>();
+
+    // Lifecycle Methods
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        propertyGroups = GetPropertyGroups();
+    }
+
+    // Helper Methods
+    private void AddCustomText() => customTexts.Add(new CustomTextElement(null, null, null, null, null));
+    private void RemoveCustomText(CustomTextElement customText) => customTexts.Remove(customText);
+    private void ToggleEditMode(CustomTextElement customText, bool isInEditMode)
+    {
+        customText.IsInEditMode = isInEditMode;
+    }
+
+    private List<PropertyGroup> GetPropertyGroups()
+    {
+        var groups = new List<PropertyGroup>();
+        var includeProperties = typeof(TicketHandling).GetProperties()
+            .Where(p => p.PropertyType == typeof(bool) && p.Name.StartsWith("Include"));
+
+        foreach (var includeProperty in includeProperties)
+        {
+            var suffix = includeProperty.Name.Substring("Include".Length);
+            var positionProperties = typeof(TicketHandling).GetProperties()
+                .Where(p => p.Name.EndsWith(suffix + "PositionX") || p.Name.EndsWith(suffix + "PositionY"));
+
+            groups.Add(new PropertyGroup
+                {
+                    IncludeProperty = includeProperty,
+                    PositionProperties = positionProperties.ToList()
+                });
+        }
+
+        return groups;
+    }
+
+    private void HandleCheckboxChange(ChangeEventArgs e, PropertyInfo propertyInfo)
+    {
+        if (bool.TryParse(e.Value?.ToString(), out var isChecked))
+        {
+            propertyInfo.SetValue(ticketHandling, isChecked);
+        }
+    }
+
+    private void HandleInputChange(ChangeEventArgs e, PropertyInfo propertyInfo)
+    {
+        if (propertyInfo.PropertyType == typeof(bool))
+        {
+            if (bool.TryParse(e.Value?.ToString(), out var boolValue))
+            {
+                propertyInfo.SetValue(ticketHandling, boolValue);
+            }
+        }
+        else if (propertyInfo.PropertyType == typeof(float?))
+        {
+            if (float.TryParse(e.Value?.ToString(), out var floatValue))
+            {
+                propertyInfo.SetValue(ticketHandling, floatValue);
+            }
+        }
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            using var stream = file.OpenReadStream();
+            byte[] buffer = new byte[file.Size];
+            await stream.ReadAsync(buffer, 0, buffer.Length);
+
+            bgFileContent = new ByteArrayContent(buffer);
+            bgFileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            bgFileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+                {
+                    Name = "bgFile",
+                    FileName = file.Name
+                };
+            ErrorMessage = null;
+        }
+    }
+
+    private string GetDisplayName(string propertyName)
+    {
+        return Regex.Replace(propertyName, "(\\B[A-Z])", " $1");
+    }
+
+    private async Task CreatePdf(bool saveToDb)
+    {
+        if (bgFileContent == null)
+        {
+            ErrorMessage = "Please select a background file before proceeding";
+            return;
+        }
+
+        var ticketId = "14825";
+        var requestUri = $"https://localhost:7104/api/PdfTemplate/CreateTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}";
+        var content = new MultipartFormDataContent();
+
+        content.Add(bgFileContent, "bgFile", bgFileContent.Headers.ContentDisposition.FileName);
+
+        foreach (PropertyInfo property in ticketHandling.GetType().GetProperties())
+        {
+            var value = property.GetValue(ticketHandling, null)?.ToString();
+            if (value != null)
+            {
+                content.Add(new StringContent(value), property.Name);
+            }
+        }
+
+        var customTextElementsJson = System.Text.Json.JsonSerializer.Serialize(customTexts);
+
+        content.Add(new StringContent(customTextElementsJson, Encoding.UTF8, "application/json"), "customTextElementsJson");
+
+        try
+        {
+            var response = await HttpClient.PostAsync(requestUri, content);
+            if (response.IsSuccessStatusCode)
+            {
+                var pdfData = await response.Content.ReadAsByteArrayAsync();
+                pdfBase64 = Convert.ToBase64String(pdfData);
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create PDF. Status code: {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception while calling CreatePdf API: {ex.Message}");
+        }
+    }
+
+    // Nested Classes
+    public class PropertyGroup
+    {
+        public PropertyInfo IncludeProperty { get; set; }
+        public List<PropertyInfo> PositionProperties { get; set; }
+    }
+}

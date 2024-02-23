@@ -18,6 +18,7 @@
         public float? PositionY { get; set; }
 
         public string? Text { get; set; }
+        public bool IsInEditMode { get; set; } = true;
     }
 }
 

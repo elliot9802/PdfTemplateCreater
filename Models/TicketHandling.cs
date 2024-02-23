@@ -6,27 +6,16 @@
 
         #region Include
 
-        #region bara 0
-
-        public bool IncludeStrukturArtikel { get; set; }
-
-        #endregion bara 0
-
-        #region helt null
-
-        public bool IncludeArtNotText { get; set; }
-        public bool IncludeDescription { get; set; }
-
-        #endregion helt null
-
         public bool IncludeAd { get; set; }
         public bool IncludeArtName { get; set; }
+        public bool IncludeArtNotText { get; set; }
         public bool IncludeArtNr { get; set; }
         public bool IncludeBookingNr { get; set; }
         public bool IncludeChairNr { get; set; }
         public bool IncludeChairRow { get; set; }
         public bool IncludeContactPerson { get; set; }
         public bool IncludeDatum { get; set; }
+        public bool IncludeDescription { get; set; }
         public bool IncludeEmail { get; set; }
         public bool IncludeEntrance { get; set; }
         public bool IncludeEventDate { get; set; }
@@ -36,9 +25,9 @@
         public bool IncludeLogorad2 { get; set; }
         public bool IncludePrice { get; set; }
         public bool IncludeRutBokstav { get; set; }
-        public bool IncludeScissorsLine { get; set; }
         public bool IncludeSection { get; set; }
         public bool IncludeServiceFee { get; set; }
+        public bool IncludeStrukturArtikel { get; set; }
         public bool IncludeSubEventName { get; set; }
         public bool IncludeWebbcode { get; set; }
         public bool IncludeWebBookingNr { get; set; }
@@ -72,6 +61,8 @@
         public float? ChairNrPositionY { get; set; }
         public float? ChairRowPositionX { get; set; }
         public float? ChairRowPositionY { get; set; }
+        public float? ContactPersonPositionX { get; set; }
+        public float? ContactPersonPositionY { get; set; }
         public float? DatumPositionX { get; set; }
         public float? DatumPositionY { get; set; }
         public float? DescriptionPositionX { get; set; }
@@ -92,8 +83,6 @@
         public float? Logorad1PositionY { get; set; }
         public float? Logorad2PositionX { get; set; }
         public float? Logorad2PositionY { get; set; }
-        public float? ContactPersonPositionX { get; set; }
-        public float? ContactPersonPositionY { get; set; }
         public float? PricePositionX { get; set; }
         public float? PricePositionY { get; set; }
 
@@ -109,12 +98,14 @@
         public float? SubEventNamePositionY { get; set; }
         public float? WebbcodePositionX { get; set; }
         public float? WebbcodePositionY { get; set; }
-        public float? WebBookingNumberPositionX { get; set; }
-        public float? WebBookingNumberPositionY { get; set; }
+        public float? WebBookingNrPositionX { get; set; }
+        public float? WebBookingNrPositionY { get; set; }
 
         #endregion Position
 
         public List<CustomTextElement>? CustomTextElements { get; set; } = new List<CustomTextElement>();
+
+        public bool AddScissorsLine { get; set; }
 
         public bool FlipBarcode { get; set; }
 

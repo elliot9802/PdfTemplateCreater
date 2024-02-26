@@ -63,6 +63,26 @@ namespace Services
             }
         }
 
+        public async Task<TicketTemplateDTO> GetTemplateByIdAsync(Guid ticketTemplateId)
+        {
+            using var db = csMainDbContext.Create(_dbLogin);
+            var template = await db.TicketTemplate
+                .Where(t => t.TicketTemplateId == ticketTemplateId)
+                .Select(t => new TicketTemplateDTO
+                {
+                    TicketTemplateId = t.TicketTemplateId,
+                    ShowEventInfo = t.ShowEventInfo,
+                    TicketHandlingJson = t.TicketsHandlingJson
+                }).FirstOrDefaultAsync();
+
+            if (template == null)
+            {
+                throw new KeyNotFoundException($"Template with ID {ticketTemplateId} not found.");
+            }
+
+            return template;
+        }
+
         public async Task<TicketsDataDto> GetTicketDataAsync(int? ticketId, int? showEventInfo)
         {
             try
@@ -90,13 +110,19 @@ namespace Services
             }
         }
 
-        public async Task<List<int>> ReadTemplatesAsync()
+        public async Task<List<TicketTemplateDTO>> ReadTemplatesAsync()
         {
             try
             {
                 using (var db = csMainDbContext.Create(_dbLogin))
                 {
-                    var templates = await db.TicketTemplate.Select(t => t.ShowEventInfo).ToListAsync();
+                    var templates = await db.TicketTemplate.Select(t => new TicketTemplateDTO
+                    {
+                        TicketTemplateId = t.TicketTemplateId,
+                        ShowEventInfo = t.ShowEventInfo,
+                        TicketHandlingJson = t.TicketsHandlingJson
+                    }).ToListAsync();
+
                     _logger.LogInformation($"Retrieved {templates.Count} templates");
                     return templates;
                 }

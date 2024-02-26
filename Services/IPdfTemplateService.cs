@@ -13,12 +13,14 @@ namespace Services
 
         Task<TicketHandling> GetPredefinedTicketHandlingAsync(int showEventInfo);
 
+        Task<TicketTemplateDTO> GetTemplateByIdAsync(Guid ticketTemplateId);
+
         string GetTemporaryPdfFilePath();
 
         Task<TicketsDataDto> GetTicketDataAsync(int? ticketId, int? showEventInfo);
 
         TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling);
 
-        Task<List<int>> ReadTemplatesAsync();
+        Task<List<TicketTemplateDTO>> ReadTemplatesAsync();
     }
 }

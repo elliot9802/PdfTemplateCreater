@@ -95,12 +95,20 @@ namespace AppPdfTemplateWApi.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetTicketTemplate()
+        public async Task<IActionResult> GetTicketTemplate(Guid? ticketTemplateId = null)
         {
             try
             {
-                var showEventInfoList = await _pdfService.ReadTemplatesAsync();
-                return Ok(showEventInfoList);
+                if (ticketTemplateId.HasValue)
+                {
+                    var template = await _pdfService.GetTemplateByIdAsync(ticketTemplateId.Value);
+                    return Ok(template);
+                }
+                else
+                {
+                    var templates = await _pdfService.ReadTemplatesAsync();
+                    return Ok(templates);
+                }
             }
             catch (Exception ex)
             {

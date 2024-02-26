@@ -1,0 +1,79 @@
+﻿@page "/edit-template/{TemplateId:guid}"
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+@using Newtonsoft.Json
+@using Models
+
+<h3>Edit Template</h3>
+
+@if (ErrorMessage != null)
+{
+    <div class="alert alert-danger">@ErrorMessage</div>
+}
+
+@if (ticketHandling != null)
+{
+    <ul>
+        @foreach (var prop in ticketHandling.GetType().GetProperties())
+        {
+            if (prop.Name != "CustomTextElements")
+            {
+                <li>@prop.Name: @prop.GetValue(ticketHandling)?.ToString()</li>
+            }
+        }
+    </ul>
+
+    <h4>Custom Text Elements</h4>
+    <ul>
+        @foreach (var cte in ticketHandling.CustomTextElements)
+        {
+            <li>Text: @cte.Text, X: @cte.PositionX, Y: @cte.PositionY, FontSize: @cte.FontSize, Color: @cte.Color</li>
+        }
+    </ul>
+}
+else
+{
+    <p>Loading template data...</p>
+}
+
+@code {
+    [Parameter]
+    public Guid TemplateId { get; set; }
+
+    private TicketHandling ticketHandling;
+    public string ErrorMessage { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplateData(TemplateId);
+    }
+
+    private async Task LoadTemplateData(Guid templateId)
+    {
+        try
+        {
+            var response = await HttpClient.GetAsync($"https://localhost:7104/api/PdfTemplate/GetTicketTemplate?ticketTemplateId={templateId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var jsonString = await response.Content.ReadAsStringAsync();
+                var templateDTO = JsonConvert.DeserializeObject<TicketTemplateDTO>(jsonString);
+                if (templateDTO != null)
+                {
+                    ticketHandling = JsonConvert.DeserializeObject<TicketHandling>(templateDTO.TicketHandlingJson);
+                }
+                else
+                {
+                    ErrorMessage = "Template data could not be loaded.";
+                }
+            }
+            else
+            {
+                ErrorMessage = await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"An error occurred: {ex.Message}";
+        }
+    }
+}

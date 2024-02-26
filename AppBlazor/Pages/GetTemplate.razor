@@ -1,0 +1,182 @@
+﻿@page "/existing-templates"
+@using DbModels
+@using Models
+@inject HttpClient HttpClient
+@using Newtonsoft.Json
+@inject NavigationManager NavigationManager
+@using System.Net.Http.Headers
+
+<h3>Existing Templates</h3>
+
+@if (templates == null)
+{
+    <p><em>Loading templates...</em></p>
+}
+else
+{
+    <!-- File Upload Section -->
+    <InputFile OnChange="HandleFileSelected" />
+
+    <div>
+        <select class="form-control" @onchange="OnTemplateSelected">
+            <option value="">Select a Template</option>
+            @foreach (var template in templates.OrderBy(t => t.ShowEventInfo))
+            {
+                <!-- Pass ShowEventInfo as the value -->
+                <option value="@template.ShowEventInfo">@($"Template {template.ShowEventInfo} - {(template.ShowEventInfo <= 3 ? "Predefined" : "User Added")}: {template.TicketTemplateId}")</option>
+            }
+        </select>
+    </div>
+
+    <button class="btn btn-primary" @onclick="PreviewTemplate" disabled="@(!selectedShowEventInfo.HasValue)">Preview</button>
+
+    @if (!isPredefined && selectedTemplateId.HasValue)
+    {
+        <button class="btn btn-secondary mt-2" @onclick="EditTemplate">Edit Selected Template</button>
+        <button class="btn btn-danger" @onclick="DeleteTemplate">Delete Selected Template</button>
+    }
+
+    <!-- PDF Preview Section -->
+    @if (!string.IsNullOrEmpty(pdfBase64))
+    {
+        <object data="@($"data:application/pdf;base64,{pdfBase64}")" type="application/pdf" width="100%" height="500px">
+            <p>This browser does not support PDFs. Please download the PDF to view it: <a href="@($"data:application/pdf;base64,{pdfBase64}")" download="document.pdf">Download PDF</a>.</p>
+        </object>
+    }
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @ErrorMessage
+        </div>
+    }
+}
+
+@code {
+    public string? ErrorMessage { get; set; }
+    private List<int>? showEventInfos;
+    private Guid? selectedTemplateId;
+    private int? selectedShowEventInfo;
+    private bool isPredefined = true;
+    private string? pdfBase64;
+    private ByteArrayContent? bgFileContent;
+    private List<TicketTemplateDTO>? templates;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplatesAsync();
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            using var stream = file.OpenReadStream();
+            byte[] buffer = new byte[file.Size];
+            await stream.ReadAsync(buffer, 0, buffer.Length);
+
+            bgFileContent = new ByteArrayContent(buffer)
+                {
+                    Headers =
+                {
+                    ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream"),
+                    ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
+                    {
+                        Name = "bgFile",
+                        FileName = file.Name
+                    }
+                }
+                };
+        }
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        var response = await HttpClient.GetAsync("https://localhost:7104/api/PdfTemplate/GetTicketTemplate");
+        if (response.IsSuccessStatusCode)
+        {
+            var jsonString = await response.Content.ReadAsStringAsync();
+            templates = JsonConvert.DeserializeObject<List<TicketTemplateDTO>>(jsonString);
+        }
+        else
+        {
+            ErrorMessage = "Failed to load templates.";
+        }
+    }
+
+    private void OnTemplateSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var showEventInfo))
+        {
+            var template = templates.FirstOrDefault(t => t.ShowEventInfo == showEventInfo);
+            selectedShowEventInfo = showEventInfo;
+            selectedTemplateId = template?.TicketTemplateId; // This assumes you have this property in your DTO
+            isPredefined = showEventInfo <= 3;
+            pdfBase64 = null; // Clear any previous preview
+        }
+        else
+        {
+            selectedShowEventInfo = null;
+            selectedTemplateId = null;
+        }
+    }
+
+
+    private async Task PreviewTemplate()
+    {
+        ErrorMessage = string.Empty;
+        if (selectedShowEventInfo.HasValue && selectedShowEventInfo > 0)
+        {
+            var ticketId = "14825";
+            var requestUri = $"https://localhost:7104/api/PdfTemplate/GetPredefinedTemplate/GetPredefinedTemplate?showEventInfo={selectedShowEventInfo}&ticketId={ticketId}";
+            var content = new MultipartFormDataContent();
+
+            content.Add(bgFileContent, "bgFile", bgFileContent.Headers.ContentDisposition.FileName);
+
+            try
+            {
+                var response = await HttpClient.PostAsync(requestUri, content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var pdfData = await response.Content.ReadAsByteArrayAsync();
+                    pdfBase64 = Convert.ToBase64String(pdfData);
+                }
+                else
+                {
+                    ErrorMessage = "Failed to preview the template.";
+                    Console.WriteLine($"Failed to preview PDF. Status code: {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = "An error occurred while attempting to preview the template.";
+                Console.WriteLine($"Exception while calling PreviewTemplate API: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task DeleteTemplate()
+    {
+        if (!isPredefined && selectedTemplateId.HasValue)
+        {
+            var response = await HttpClient.DeleteAsync($"https://localhost:7104/api/PdfTemplate/DeleteTicketTemplate/{selectedTemplateId}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadTemplatesAsync();
+                ErrorMessage = "Template successfully deleted.";
+            }
+            else
+            {
+                ErrorMessage = "Failed to delete the template. Please try again.";
+            }
+        }
+    }
+
+    private void EditTemplate()
+    {
+        if (selectedShowEventInfo.HasValue)
+        {
+            NavigationManager.NavigateTo($"/edit-template/{selectedTemplateId}");
+        }
+    }
+}

@@ -4,15 +4,15 @@ using static Configuration.AppConfig;
 
 namespace DbContext
 {
-    public class csMainDbContext : Microsoft.EntityFrameworkCore.DbContext
+    public class TicketTemplateDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
         public DbSet<TicketTemplateDbM> TicketTemplate { get; set; }
         public DbSet<TicketsDataDto> Vy_ShowTickets { get; set; }
 
-        public csMainDbContext()
+        public TicketTemplateDbContext()
         { }
 
-        public csMainDbContext(DbContextOptions<csMainDbContext> options) : base(options)
+        public TicketTemplateDbContext(DbContextOptions<TicketTemplateDbContext> options) : base(options)
         {
         }
 
@@ -29,26 +29,26 @@ namespace DbContext
             base.OnModelCreating(modelBuilder);
         }
 
-        public static csMainDbContext Create(string dbConnectionString)
+        public static TicketTemplateDbContext Create(string dbConnectionString)
         {
-            var optionsBuilder = DbContextOptions(GetDbLoginDetails(dbConnectionString));
-            return new csMainDbContext(optionsBuilder.Options);
+            var optionsBuilder = DbContextOptions(DbLoginDetails(dbConnectionString));
+            return new TicketTemplateDbContext(optionsBuilder.Options);
         }
 
-        public static DbContextOptionsBuilder<csMainDbContext> DbContextOptions(DbLoginDetail dbLoginDetail)
+        public static DbContextOptionsBuilder<TicketTemplateDbContext> DbContextOptions(DbLoginDetail dbLoginDetail)
         {
-            var optionsBuilder = new DbContextOptionsBuilder<csMainDbContext>();
+            var optionsBuilder = new DbContextOptionsBuilder<TicketTemplateDbContext>();
             optionsBuilder.UseSqlServer(dbLoginDetail.DbConnectionString,
                         options => options.EnableRetryOnFailure());
             return optionsBuilder;
         }
 
-        public class SqlServerDbContext : csMainDbContext
+        public class SqlServerDbContext : TicketTemplateDbContext
         {
             public SqlServerDbContext()
             { }
 
-            public SqlServerDbContext(DbContextOptions<csMainDbContext> options) : base(options)
+            public SqlServerDbContext(DbContextOptions<TicketTemplateDbContext> options) : base(options)
             {
             }
 
@@ -62,7 +62,7 @@ namespace DbContext
                         throw new InvalidOperationException("The database connection string is not configured.");
                     }
 
-                    var dbLoginDetail = GetDbLoginDetails(connectionString);
+                    var dbLoginDetail = DbLoginDetails(connectionString);
                     optionsBuilder.UseSqlServer(dbLoginDetail.DbConnectionString,
                         options => options.EnableRetryOnFailure());
                 }

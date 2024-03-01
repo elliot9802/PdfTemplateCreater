@@ -1,10 +1,12 @@
 ﻿@page "/existing-templates"
 @using DbModels
 @using Models
+@using AppBlazor.Components
 @inject HttpClient HttpClient
 @using Newtonsoft.Json
 @inject NavigationManager NavigationManager
 @using System.Net.Http.Headers
+@inject IJSRuntime JSRuntime
 
 <h3>Existing Templates</h3>
 
@@ -15,9 +17,9 @@
 else
 {
     <!-- File Upload Section -->
-    <InputFile OnChange="HandleFileSelected" />
+    <UserFileInputComponent OnFileUploaded="@HandleFileUploaded" />
 
-    <div>
+    <div class="my-2">
         <select class="form-control" @onchange="OnTemplateSelected">
             <option value="">Select a Template</option>
             @foreach (var template in templates.OrderBy(t => t.ShowEventInfo))
@@ -32,62 +34,56 @@ else
 
     @if (!isPredefined && selectedTemplateId.HasValue)
     {
-        <button class="btn btn-secondary mt-2" @onclick="EditTemplate">Edit Selected Template</button>
+        <button class="btn btn-secondary mx-2" @onclick="EditTemplate">Edit Selected Template</button>
         <button class="btn btn-danger" @onclick="DeleteTemplate">Delete Selected Template</button>
     }
 
     <!-- PDF Preview Section -->
-    @if (!string.IsNullOrEmpty(pdfBase64))
-    {
-        <object data="@($"data:application/pdf;base64,{pdfBase64}")" type="application/pdf" width="100%" height="500px">
-            <p>This browser does not support PDFs. Please download the PDF to view it: <a href="@($"data:application/pdf;base64,{pdfBase64}")" download="document.pdf">Download PDF</a>.</p>
-        </object>
-    }
+    <PdfPreviewComponent PdfBase64="@pdfBase64" />
+
     @if (!string.IsNullOrEmpty(ErrorMessage))
     {
-        <div class="alert alert-danger" role="alert">
+        <div class="alert alert-danger mt-2" role="alert">
             @ErrorMessage
         </div>
     }
+    <div id="temporaryMessage" class="alert alert-success mt-2" style="display: none;"></div>
 }
+<script>
+    function showTemporaryMessage(message, duration) {
+        var messageElement = document.getElementById('temporaryMessage');
+        messageElement.innerText = message;
+        messageElement.style.display = 'block';
+
+        setTimeout(function () {
+            messageElement.style.display = 'none';
+        }, duration);
+    }
+</script>
 
 @code {
+    private List<TicketTemplateDto>? templates;
+    private ByteArrayContent? bgFileContent;
     public string? ErrorMessage { get; set; }
-    private List<int>? showEventInfos;
+    private bool isPredefined = true;
     private Guid? selectedTemplateId;
     private int? selectedShowEventInfo;
-    private bool isPredefined = true;
     private string? pdfBase64;
-    private ByteArrayContent? bgFileContent;
-    private List<TicketTemplateDTO>? templates;
+
+    private async Task ShowTemporaryMessage(string message, int duration)
+    {
+        await JSRuntime.InvokeVoidAsync("showTemporaryMessage", message, duration);
+    }
 
     protected override async Task OnInitializedAsync()
     {
         await LoadTemplatesAsync();
     }
 
-    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    private void HandleFileUploaded(ByteArrayContent fileContent)
     {
-        var file = e.File;
-        if (file != null)
-        {
-            using var stream = file.OpenReadStream();
-            byte[] buffer = new byte[file.Size];
-            await stream.ReadAsync(buffer, 0, buffer.Length);
-
-            bgFileContent = new ByteArrayContent(buffer)
-                {
-                    Headers =
-                {
-                    ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream"),
-                    ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("form-data")
-                    {
-                        Name = "bgFile",
-                        FileName = file.Name
-                    }
-                }
-                };
-        }
+        bgFileContent = fileContent;
+        ErrorMessage = null;
     }
 
     private async Task LoadTemplatesAsync()
@@ -96,7 +92,7 @@ else
         if (response.IsSuccessStatusCode)
         {
             var jsonString = await response.Content.ReadAsStringAsync();
-            templates = JsonConvert.DeserializeObject<List<TicketTemplateDTO>>(jsonString);
+            templates = JsonConvert.DeserializeObject<List<TicketTemplateDto>>(jsonString);
         }
         else
         {
@@ -108,11 +104,11 @@ else
     {
         if (int.TryParse(e.Value?.ToString(), out var showEventInfo))
         {
-            var template = templates.FirstOrDefault(t => t.ShowEventInfo == showEventInfo);
+            var template = templates?.FirstOrDefault(t => t.ShowEventInfo == showEventInfo);
             selectedShowEventInfo = showEventInfo;
-            selectedTemplateId = template?.TicketTemplateId; // This assumes you have this property in your DTO
+            selectedTemplateId = template?.TicketTemplateId;
             isPredefined = showEventInfo <= 3;
-            pdfBase64 = null; // Clear any previous preview
+            pdfBase64 = null;
         }
         else
         {
@@ -121,17 +117,29 @@ else
         }
     }
 
-
     private async Task PreviewTemplate()
     {
         ErrorMessage = string.Empty;
         if (selectedShowEventInfo.HasValue && selectedShowEventInfo > 0)
         {
+            if (bgFileContent == null)
+            {
+                ErrorMessage = "Please select a background file before proceeding";
+                return;
+            }
+
+            var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
+            if (string.IsNullOrEmpty(fileName))
+            {
+                ErrorMessage = "The file name was not provided.";
+                return;
+            }
+
             var ticketId = "14825";
             var requestUri = $"https://localhost:7104/api/PdfTemplate/GetPredefinedTemplate/GetPredefinedTemplate?showEventInfo={selectedShowEventInfo}&ticketId={ticketId}";
             var content = new MultipartFormDataContent();
 
-            content.Add(bgFileContent, "bgFile", bgFileContent.Headers.ContentDisposition.FileName);
+            content.Add(bgFileContent, "bgFile", fileName);
 
             try
             {
@@ -163,7 +171,8 @@ else
             if (response.IsSuccessStatusCode)
             {
                 await LoadTemplatesAsync();
-                ErrorMessage = "Template successfully deleted.";
+                pdfBase64 = null;
+                await ShowTemporaryMessage("Template successfully deleted.", 5000);
             }
             else
             {

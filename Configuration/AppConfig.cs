@@ -6,16 +6,15 @@ namespace Configuration
     public class AppConfig
     {
 #if DEBUG
-        public const string Appsettingfile = "appsettings.Development.json";
+        private const string Appsettingfile = "appsettings.Development.json";
 #else
-        public const string Appsettingfile = "appsettings.json";
+        private const string Appsettingfile = "appsettings.json";
 #endif
 
         private static readonly object InstanceLock = new();
-        private static AppConfig _instance;
-        private static IConfigurationRoot _configuration;
-        private static DbLoginDetail _dbLogin;
-        public static ImagePaths _imgPaths;
+        private static AppConfig? _instance;
+        private readonly IConfigurationRoot _configuration;
+        private readonly ImagePaths _imgPaths;
 
         private AppConfig()
         {
@@ -33,56 +32,40 @@ namespace Configuration
             SyncfusionLicenseProvider.RegisterLicense(syncfusionLicenseKey);
         }
 
-        public static IConfigurationRoot ConfigurationRoot
+        public static AppConfig Instance
         {
             get
             {
                 lock (InstanceLock)
                 {
-                    if (_instance == null)
-                    {
-                        _instance = new AppConfig();
-                    }
-                    return _configuration;
+                    return _instance ??= new AppConfig();
                 }
             }
         }
 
-        public static DbLoginDetail GetDbLoginDetails(string dbLoginKey)
+        public static IConfigurationRoot ConfigurationRoot => Instance._configuration;
+
+        public static DbLoginDetail DbLoginDetails(string dbLoginKey)
         {
-            if (string.IsNullOrEmpty(dbLoginKey))
-                throw new ArgumentNullException(nameof(dbLoginKey), "Database login key is not provided.");
+            var connectionString = ConfigurationRoot["DbLogins"]
+                ?? throw new InvalidOperationException($"Connection string for key '{dbLoginKey}' is missing in the configuration.");
 
-            lock (InstanceLock)
-            {
-                if (_dbLogin == null)
-                {
-                    var connectionString = ConfigurationRoot["DbLogins"];
-                    if (string.IsNullOrEmpty(connectionString))
-                    {
-                        throw new InvalidOperationException($"Connection string for key '{dbLoginKey}' is missing in the configuration.");
-                    }
-
-                    _dbLogin = new DbLoginDetail { DbConnection = connectionString };
-                }
-
-                return _dbLogin;
-            }
+            return new DbLoginDetail { DbConnection = connectionString };
         }
 
-        public static ImagePaths GetImagePaths() => _imgPaths;
+        public static ImagePaths ImagePathSettings => Instance._imgPaths;
 
         public class DbLoginDetail
         {
-            public string DbConnection { get; set; }
-            public string DbConnectionString => DbConnection;
+            public string? DbConnection { get; set; }
+            public string? DbConnectionString => DbConnection;
         }
 
         public class ImagePaths
         {
-            public string BackgroundImagePath { get; set; }
-            public string ScissorsLineImagePath { get; set; }
-            public string AdImagePath { get; set; }
+            public string? BackgroundImagePath { get; set; }
+            public string? ScissorsLineImagePath { get; set; }
+            public string? AdImagePath { get; set; }
         }
     }
 }

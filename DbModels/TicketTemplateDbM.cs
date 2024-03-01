@@ -15,8 +15,8 @@ namespace DbModels
         public override TicketHandling TicketsHandling
         {
             get => string.IsNullOrEmpty(TicketsHandlingJson)
-                ? null
-                : JsonConvert.DeserializeObject<TicketHandling>(TicketsHandlingJson);
+                ? new TicketHandling()
+                : JsonConvert.DeserializeObject<TicketHandling>(TicketsHandlingJson) ?? new TicketHandling();
             set => TicketsHandlingJson = JsonConvert.SerializeObject(value);
         }
 
@@ -40,15 +40,24 @@ namespace DbModels
             ShowEventInfo = org.ShowEventInfo;
         }
 
-        // UpdateFromDTO could be used to update an existing TicketTemplateDbM entity
         public void UpdateFromDTO(TemplateCUdto org)
         {
             if (org == null)
             {
                 throw new ArgumentNullException(nameof(org), "Provided DTO is null.");
             }
+            var ticketHandlingFromDto = !string.IsNullOrWhiteSpace(org.TicketHandlingJson)
+                                        ? JsonConvert.DeserializeObject<TicketHandling>(org.TicketHandlingJson)
+                                        : null;
+            if (ticketHandlingFromDto != null)
+            {
+                this.TicketsHandling = ticketHandlingFromDto;
+            }
+            else
+            {
+                this.TicketsHandling = new TicketHandling();
+            }
 
-            TicketsHandling = org.TicketsHandling ?? new TicketHandling();
             ShowEventInfo = org.ShowEventInfo;
         }
 

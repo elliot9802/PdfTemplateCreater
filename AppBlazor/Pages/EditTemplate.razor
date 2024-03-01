@@ -1,51 +1,80 @@
 ﻿@page "/edit-template/{TemplateId:guid}"
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
-@using Newtonsoft.Json
+@using AppBlazor.Components
 @using Models
+@using System.Net.Http.Headers
+@using Newtonsoft.Json
+@using System.Text
+@using System.Text.RegularExpressions
+@using System.Reflection
 
 <h3>Edit Template</h3>
 
-@if (ErrorMessage != null)
-{
-    <div class="alert alert-danger">@ErrorMessage</div>
-}
+<!-- File Upload Section -->
+@* <UserFileInputComponent OnFileUploaded="HandleFileUploaded" /> *@
 
-@if (ticketHandling != null)
-{
-    <ul>
-        @foreach (var prop in ticketHandling.GetType().GetProperties())
-        {
-            if (prop.Name != "CustomTextElements")
-            {
-                <li>@prop.Name: @prop.GetValue(ticketHandling)?.ToString()</li>
-            }
-        }
-    </ul>
+<!-- Custom Text Elements -->
+<CustomTextComponent CustomTexts="@ticketHandling.CustomTextElements" />
 
-    <h4>Custom Text Elements</h4>
-    <ul>
-        @foreach (var cte in ticketHandling.CustomTextElements)
-        {
-            <li>Text: @cte.Text, X: @cte.PositionX, Y: @cte.PositionY, FontSize: @cte.FontSize, Color: @cte.Color</li>
-        }
-    </ul>
-}
-else
+<!-- Dynamic Form Generation Section -->
+<PropertyGroupComponent TicketHandling="@ticketHandling" />
+
+<!-- Action Buttons -->
+<button @onclick="SaveTemplate" class="btn btn-success btn-sm">Save Changes</button>
+
+
+<!-- PDF Preview Section -->
+<PdfPreviewComponent PdfBase64="@pdfBase64" />
+
+@*         <!-- PDF SaveToDb Section -->
+                @if (showSuccessMessage)
+                {
+            <div class="alert alert-success" role="alert">
+                PDF Template saved successfully! What would you like to do next?
+                <div class="mt-2">
+                    <button class="btn btn-primary btn-sm" @onclick="StartFresh">Start Fresh</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="ContinueFromCurrent">Continue From Current Point</button>
+                    <button class="btn btn-info btn-sm" @onclick="SelectExistingTemplates">Select Between Existing Templates</button>
+                </div>
+                }
+            </div> *@
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
 {
-    <p>Loading template data...</p>
+    <div class="validation-message" role="alert">
+        @ErrorMessage
+    </div>
 }
 
 @code {
+    // Class Members
     [Parameter]
     public Guid TemplateId { get; set; }
+    private TicketHandling ticketHandling = new TicketHandling();
+    private List<CustomTextElement> customTexts = new List<CustomTextElement>();
+    private int showEventInfo;
+    // private ByteArrayContent? bgFileContent;
+    private string? pdfBase64;
 
-    private TicketHandling ticketHandling;
-    public string ErrorMessage { get; set; }
+    public string? ErrorMessage { get; set; }
+    private bool showSuccessMessage = false;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadTemplateData(TemplateId);
+    }
+
+    // Helper Methods
+    // private void HandleFileUploaded(ByteArrayContent fileContent)
+    // {
+    //     bgFileContent = fileContent;
+    //     ErrorMessage = null;
+    // }
+
+    private void HandleCustomTextsChange(List<CustomTextElement> updatedCustomTexts)
+    {
+        ticketHandling.CustomTextElements = updatedCustomTexts;
     }
 
     private async Task LoadTemplateData(Guid templateId)
@@ -56,10 +85,12 @@ else
             if (response.IsSuccessStatusCode)
             {
                 var jsonString = await response.Content.ReadAsStringAsync();
-                var templateDTO = JsonConvert.DeserializeObject<TicketTemplateDTO>(jsonString);
+                var templateDTO = JsonConvert.DeserializeObject<TicketTemplateDto>(jsonString);
+
                 if (templateDTO != null)
                 {
-                    ticketHandling = JsonConvert.DeserializeObject<TicketHandling>(templateDTO.TicketHandlingJson);
+                    ticketHandling = JsonConvert.DeserializeObject<TicketHandling>(templateDTO.TicketHandlingJson) ?? new TicketHandling();
+                    showEventInfo = templateDTO.ShowEventInfo;
                 }
                 else
                 {
@@ -76,4 +107,37 @@ else
             ErrorMessage = $"An error occurred: {ex.Message}";
         }
     }
+
+    private async Task SaveTemplate()
+    {
+        var templateDTO = new TicketTemplateDto
+            {
+                TicketTemplateId = TemplateId,
+                TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling),
+                ShowEventInfo = showEventInfo
+            };
+
+        var jsonContent = JsonConvert.SerializeObject(templateDTO);
+        Console.WriteLine(jsonContent);
+        var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+        try
+        {
+            var response = await HttpClient.PutAsync($"https://localhost:7104/api/PdfTemplate/UpdateTemplate/UpdateTemplate", content);
+            if (response.IsSuccessStatusCode)
+            {
+                showSuccessMessage = true;
+                ErrorMessage = "Template updated successfully!";
+            }
+            else
+            {
+                ErrorMessage = "Failed to update the template: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"An unexpected error occurred: {ex.Message}";
+        }
+    }
+
 }

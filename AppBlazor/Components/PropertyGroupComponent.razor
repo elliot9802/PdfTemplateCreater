@@ -1,0 +1,158 @@
+﻿@using Models
+@using System.Text.RegularExpressions
+@using System.Reflection
+@code {
+    [Parameter]
+    public TicketHandling? TicketHandling { get; set; }
+
+    public List<PropertyGroup>? PropertyGroups { get; set; } = new List<PropertyGroup>();
+
+    protected override void OnParametersSet()
+    {
+        PropertyGroups = GetPropertyGroups();
+    }
+
+    private List<PropertyGroup> GetPropertyGroups()
+    {
+        var groups = new List<PropertyGroup>();
+        var includeProperties = typeof(TicketHandling).GetProperties()
+            .Where(p => p.PropertyType == typeof(bool) && p.Name.StartsWith("Include"));
+
+        foreach (var includeProperty in includeProperties)
+        {
+            var suffix = includeProperty.Name.Substring("Include".Length);
+            List<PropertyInfo> positionProperties;
+            if (suffix == "EventName" || suffix == "SubEventName")
+            {
+                positionProperties = typeof(TicketHandling).GetProperties()
+                    .Where(p => p.Name.StartsWith(suffix) && (p.Name.EndsWith("PositionX") || p.Name.EndsWith("PositionY")))
+                    .ToList();
+            }
+            else if (suffix == "BookingNr" || suffix == "WebBookingNr")
+            {
+                positionProperties = typeof(TicketHandling).GetProperties()
+                    .Where(p => p.Name.StartsWith(suffix) && (p.Name.EndsWith("PositionX") || p.Name.EndsWith("PositionY")))
+                    .ToList();
+            }
+            else
+            {
+                positionProperties = typeof(TicketHandling).GetProperties()
+                    .Where(p => p.Name.EndsWith(suffix + "PositionX") || p.Name.EndsWith(suffix + "PositionY"))
+                    .ToList();
+            }
+
+            groups.Add(new PropertyGroup
+                {
+                    IncludeProperty = includeProperty,
+                    PositionProperties = positionProperties
+                });
+        }
+
+        return groups;
+    }
+
+    private void HandleCheckboxChange(ChangeEventArgs e, PropertyInfo? propertyInfo)
+    {
+        if (propertyInfo is null) return;
+
+        if (bool.TryParse(e.Value?.ToString(), out var isChecked))
+        {
+            propertyInfo.SetValue(TicketHandling, isChecked);
+        }
+    }
+
+    private void HandlePositionChange(ChangeEventArgs e, PropertyInfo propertyInfo)
+    {
+        var inputValue = e.Value?.ToString();
+        if (string.IsNullOrEmpty(inputValue))
+        {
+            propertyInfo.SetValue(TicketHandling, null);
+        }
+        else
+        {
+            if (propertyInfo.PropertyType == typeof(bool))
+            {
+                if (bool.TryParse(inputValue, out var boolValue))
+                {
+                    propertyInfo.SetValue(TicketHandling, boolValue);
+                }
+            }
+            else if (propertyInfo.PropertyType == typeof(float?))
+            {
+                if (float.TryParse(inputValue, out var floatValue))
+                {
+                    propertyInfo.SetValue(TicketHandling, floatValue);
+                }
+            }
+        }
+    }
+
+    private string GetDisplayName(string propertyName) => Regex.Replace(propertyName, "(\\B[A-Z])", " $1");
+}
+
+@if (TicketHandling != null && PropertyGroups != null)
+{
+    <div class="scrollable-container customization-container">
+        <h2>Hantera strukturerad data</h2>
+        <div class="row">
+            @foreach (var group in PropertyGroups)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <div class="form-group">
+                        <input type="checkbox" class="custom-control-input"
+                               checked="@Convert.ToBoolean(group.IncludeProperty?.GetValue(TicketHandling))"
+                        @onchange="e => HandleCheckboxChange(e, group.IncludeProperty)"
+                               id="@group.IncludeProperty?.Name" />
+                        <label class="custom-control-label">@GetDisplayName(group.IncludeProperty?.Name ?? string.Empty)</label>
+                    </div>
+
+                    @if (Convert.ToBoolean(group.IncludeProperty?.GetValue(TicketHandling)))
+                    {
+                        foreach (var positionProperty in group.PositionProperties ?? new List<PropertyInfo>())
+                        {
+                            <div class="position-input-group">
+                                <label>@GetDisplayName(positionProperty.Name)</label>
+                                <input type="number" class="form-control form-control-sm mb-2"
+                                       value="@positionProperty.GetValue(TicketHandling)?.ToString()"
+                                @oninput="@(e => HandlePositionChange(e, positionProperty))" />
+                            </div>
+                        }
+                    }
+                </div>
+            }
+        </div>
+        <!-- Additional Options -->
+        <div class="row additional-options">
+            <div class="col-sm-4">
+                <div class="form-group">
+                    <input type="checkbox" @bind="TicketHandling.AddScissorsLine" id="AddScissorsLine" />
+                    <label for="AddScissorsLine">Add Scissors Line</label>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group">
+                    <input type="checkbox" @bind="TicketHandling.FlipBarcode" id="FlipBarcode" />
+                    <label for="FlipBarcode">Flip Barcode</label>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group">
+                    <input type="checkbox" @bind="TicketHandling.UseQRCode" id="UseQRCode" />
+                    <label for="UseQRCode">Use QR Code</label>
+                </div>
+            </div>
+            <div class="col-sm-4">
+                <div class="form-group">
+                    <div class="position-input-group">
+                        <label for="BarcodePositionX">BarcodePositionX</label>
+                        <input type="number" class="form-control form-control-sm mb-2"
+                        @bind="TicketHandling.BarcodePositionX" id="BarcodePositionX" placeholder="320" />
+                        <label for="BarcodePositionY">BarcodePositionY</label>
+                        <input type="number" class="form-control form-control-sm mb-2"
+                        @bind="TicketHandling.BarcodePositionY" id="BarcodePositionY" placeholder="825" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}

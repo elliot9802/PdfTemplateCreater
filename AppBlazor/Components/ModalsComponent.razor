@@ -1,0 +1,47 @@
+﻿@if (IsVisible)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Success!</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    @ModalBody
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary btn-sm" @onclick="StartFresh">Start Fresh</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="ContinueFromCurrent">Continue From Current Point</button>
+                    <button class="btn btn-info btn-sm" @onclick="SelectExistingTemplates">Select Between Existing Templates</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string ModalBody { get; set; } = "PDF Template saved successfully! What would you like to do next?";
+
+    [Parameter]
+    public EventCallback OnStartFresh { get; set; }
+    [Parameter]
+    public EventCallback OnContinueFromCurrent { get; set; }
+    [Parameter]
+    public EventCallback OnSelectExistingTemplates { get; set; }
+
+    public bool IsVisible { get; set; } = false;
+
+    public void Show() => IsVisible = true;
+
+    public void Hide() => IsVisible = false;
+
+    private void CloseModal() => Hide();
+
+    private async Task StartFresh() => await OnStartFresh.InvokeAsync(null);
+
+    private async Task ContinueFromCurrent() => await OnContinueFromCurrent.InvokeAsync(null);
+
+    private async Task SelectExistingTemplates() => await OnSelectExistingTemplates.InvokeAsync(null);
+}

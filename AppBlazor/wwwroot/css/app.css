@@ -1,58 +1,17 @@
 ﻿@import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
-.customization-container {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #ccc;
-    padding: 15px;
-    margin-bottom: 20px;
-}
-
-.position-input-group {
-    margin-top: 10px;
-}
-
-.customtext-container, .scrollable-container, .additional-options {
-    border: 1px solid #dee2e6;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 0.25rem;
-}
-
-.custom-text-element {
-    background-color: #f8f9fa;
-    border: 1px solid #dee2e6;
-    padding: 10px;
-    margin-bottom: 15px;
-    border-radius: 0.25rem;
-}
-
-.position-input-group, .form-group {
-    margin-bottom: 15px;
-}
-
-.custom-control-input {
-    cursor: pointer;
-}
-
-.custom-control-label {
-    margin-bottom: 0;
-    cursor: pointer;
-}
-
-button {
-    margin-right: 5px;
-}
-
-.btn-sm {
-    padding: .25rem .5rem;
-    font-size: .875rem;
-    line-height: 1.5;
-    border-radius: .2rem;
-}
+/** {
+    scrollbar-width: thin;
+    scroll-behavior: smooth;
+    scrollbar-color: #b1b1b1 transparent
+}*/
 
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.create-template .row {
+    margin-top: 1.5rem;
 }
 
 h1:focus {
@@ -63,10 +22,33 @@ a, .btn-link {
     color: #0071c1;
 }
 
+.btn-sm {
+    padding: .25rem .5rem;
+    font-size: .875rem;
+    border-radius: .2rem;
+}
+
 .btn-primary {
     color: #fff;
     background-color: #1b6ec2;
     border-color: #1861ac;
+}
+
+.custom-control-input {
+    cursor: pointer;
+}
+
+.custom-control-label {
+    margin-bottom: 2rem;
+    cursor: pointer;
+}
+
+.customtext-container, .scrollable-container, .additional-options {
+    border: 1px solid #dee2e6;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 0.25rem;
+    overflow-y: auto;
 }
 
 .content {

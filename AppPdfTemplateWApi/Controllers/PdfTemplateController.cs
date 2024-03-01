@@ -116,6 +116,30 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
+        [HttpPut("UpdateTemplate")]
+        public async Task<IActionResult> UpdateTemplate([FromBody] TicketTemplateDto templateDto)
+        {
+            _logger.LogInformation("Received template for update: {templateDto}", JsonConvert.SerializeObject(templateDto));
+            if (templateDto == null || templateDto.TicketTemplateId == Guid.Empty)
+            {
+                return BadRequestResponse("Invalid template data.");
+            }
+
+            try
+            {
+                var updatedTemplate = await _pdfService.UpdateTemplateAsync(templateDto);
+                return Ok(updatedTemplate);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFoundResponse(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return InternalServerErrorResponse(ex);
+            }
+        }
+
         // Helper methods
         private IActionResult BadRequestResponse(string message)
         {
@@ -125,18 +149,15 @@ namespace AppPdfTemplateWApi.Controllers
 
         private async Task CleanUpFiles(params string[] filePaths)
         {
-            foreach (var filePath in filePaths)
+            foreach (var filePath in filePaths.Where(filePath => _fileService.Exists(filePath)))
             {
-                if (_fileService.Exists(filePath))
-                {
-                    await _fileService.DeleteAsync(filePath);
-                }
+                await _fileService.DeleteAsync(filePath);
             }
         }
 
         private FileResult FileResultFromBytes(byte[] fileBytes, string fileName)
         {
-            _logger.LogInformation($"File {fileName} created successfully");
+            _logger.LogInformation("File {fileName} created successfully", fileName);
             return File(fileBytes, "application/pdf", fileName);
         }
 
@@ -148,14 +169,14 @@ namespace AppPdfTemplateWApi.Controllers
 
         private IActionResult NotFoundResponse(string message)
         {
-            _logger.LogWarning(message);
+            _logger.LogWarning("Resource not found: {ErrorMessage}", message);
             return NotFound(new { message });
         }
 
         private async Task<byte[]> ProcessPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
         {
-            string tempBgFilePath = Path.GetTempFileName();
-            using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
+            string tempBgFilePath = Path.GetRandomFileName();
+            await using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
             {
                 await bgFile.CopyToAsync(stream);
             }
@@ -163,17 +184,23 @@ namespace AppPdfTemplateWApi.Controllers
             var ticketHandlingData = await _pdfService.GetPredefinedTicketHandlingAsync(showEventInfo);
             if (ticketHandlingData == null)
             {
-                _logger.LogWarning($"No predefined TicketHandling found for ShowEventInfo: {showEventInfo}");
+                _logger.LogWarning("No predefined TicketHandling found for ShowEventInfo: {showEventInfo}", showEventInfo);
                 await CleanUpFiles(tempBgFilePath);
                 throw new KeyNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
             }
 
             var ticketData = await _pdfService.GetTicketDataAsync(ticketId, showEventInfo);
+            if (ticketData == null)
+            {
+                _logger.LogWarning("No template data found for ticket creation");
+                await CleanUpFiles(tempBgFilePath);
+                throw new KeyNotFoundException($"Ticket Id {ticketId} or {showEventInfo} Not Found");
+            }
             var outputPath = _pdfService.GetTemporaryPdfFilePath();
             await _pdfService.CreatePdfAsync(outputPath, ticketData, ticketHandlingData, tempBgFilePath);
 
             var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
-            _logger.LogInformation($"PDF created successfully. FileName: {Path.GetFileName(outputPath)}");
+            _logger.LogInformation("PDF created successfully. FileName: {outputPath}", Path.GetFileName(outputPath));
 
             await CleanUpFiles(outputPath, tempBgFilePath);
             return pdfBytes;
@@ -181,8 +208,8 @@ namespace AppPdfTemplateWApi.Controllers
 
         private async Task<byte[]> ProcessTemplateCreation(TicketHandling ticketHandling, IFormFile bgFile, int ticketId, bool saveToDb)
         {
-            string tempBgFilePath = Path.GetTempFileName();
-            using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
+            string tempBgFilePath = Path.GetRandomFileName();
+            await using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
             {
                 await bgFile.CopyToAsync(stream);
             }
@@ -190,7 +217,7 @@ namespace AppPdfTemplateWApi.Controllers
             var ticketData = await _pdfService.GetTicketDataAsync(ticketId, null);
             if (ticketData == null)
             {
-                _logger.LogWarning($"No template data found for ticket creation");
+                _logger.LogWarning("No template data found for ticket creation");
                 await CleanUpFiles(tempBgFilePath);
                 throw new KeyNotFoundException($"Ticket Id {ticketId} Not Found");
             }
@@ -207,7 +234,7 @@ namespace AppPdfTemplateWApi.Controllers
             else
             {
                 pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
-                _logger.LogInformation($"PDF created successfully. FileName: {Path.GetFileName(outputPath)}");
+                _logger.LogInformation("PDF created successfully. FileName: {outputPath}", Path.GetFileName(outputPath));
             }
 
             await CleanUpFiles(outputPath, tempBgFilePath);
@@ -231,7 +258,7 @@ namespace AppPdfTemplateWApi.Controllers
             }
             catch (JsonSerializationException ex)
             {
-                _logger.LogError(ex, "Error deserializing customTextElementsJson");
+                _logger.LogError(ex, "Error deserializing customTextElementsJson", ex.Message);
                 return false;
             }
         }

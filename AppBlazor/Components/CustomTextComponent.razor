@@ -1,0 +1,190 @@
+﻿@using Models
+@code {
+    // Parameters and Properties
+    [Parameter]
+    public List<CustomTextElement> CustomTexts { get; set; } = new();
+
+    public List<CustomTextElement> TempCustomTexts { get; set; } = new();
+
+    private readonly List<CustomTextElement> predefinedTexts = new()
+    {
+        new("- Köpt biljett återlöses ej -", 120, 265, 8, null),
+        new("Serviceavgift", 250, 185, 8, null),
+        new("Sektion", 398, 185, 9, "#7a7979"),
+        new("Plats", 640, 185, 9, "#7a7979"),
+        new("Rad", 580, 185, 9, "#7a7979"),
+        new("Ingång", 788, 185, 9, "#7a7979")
+    };
+
+    // UI Event Handlers
+    private void PrepTempCustomText()
+    {
+        if (!TempCustomTexts.Any(t => t.IsInEditMode))
+        {
+            TempCustomTexts.Add(new CustomTextElement { IsInEditMode = true });
+        }
+    }
+
+    private void AddCustomText(CustomTextElement customText)
+    {
+        if (!string.IsNullOrEmpty(customText.Text) && !CustomTexts.Contains(customText))
+        {
+            customText.IsInEditMode = false;
+            CustomTexts.Add(customText);
+            TempCustomTexts.Remove(customText);
+        }
+    }
+
+    private void CancelCustomText(CustomTextElement customText) => TempCustomTexts.Remove(customText);
+
+    // Data Processing Methods
+    private void AddOrUpdateTempPredefinedText()
+    {
+        var nextPredefinedText = GetNextPredefinedTextNotInCustomTexts();
+        if (nextPredefinedText is null) return;
+
+        var openTempText = TempCustomTexts.FirstOrDefault(t => t.IsInEditMode);
+        if (openTempText != null)
+        {
+            UpdateCustomTextElement(openTempText, nextPredefinedText);
+        }
+        else if (nextPredefinedText != null)
+        {
+            TempCustomTexts.Add(CreateTempCustomTextFromPredefined(nextPredefinedText));
+        }
+    }
+
+    private void AddPrdfndCustomText()
+    {
+        predefinedTexts.ForEach(predef =>
+        {
+            if (!CustomTexts.Any(ct => ct.Text == predef.Text))
+            {
+                CustomTexts.Add(new CustomTextElement(predef.Text, predef.PositionX, predef.PositionY, predef.FontSize, predef.Color));
+            }
+        });
+    }
+
+    private void RemoveCustomText(CustomTextElement customText)
+    {
+        CustomTexts.Remove(customText);
+        TempCustomTexts.Remove(customText);
+    }
+
+    private void ToggleEditMode(CustomTextElement customText, bool isInEditMode)
+    {
+        customText.IsInEditMode = isInEditMode;
+        if (!isInEditMode)
+        {
+            TempCustomTexts.Remove(customText);
+        }
+    }
+
+    private void DeleteAllCustomTexts()
+    {
+        CustomTexts.Clear();
+        // Add any additional logic required after deleting texts, such as updating the UI
+    }
+
+    // Utility Methods
+    private CustomTextElement? GetNextPredefinedTextNotInCustomTexts() =>
+        predefinedTexts.FirstOrDefault(predef => !CustomTexts.Any(ct => ct.Text == predef.Text));
+
+    private CustomTextElement CreateTempCustomTextFromPredefined(CustomTextElement source) =>
+        new CustomTextElement(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
+
+    private void UpdateCustomTextElement(CustomTextElement target, CustomTextElement source)
+    {
+        target.Text = source.Text;
+        target.PositionX = source.PositionX;
+        target.PositionY = source.PositionY;
+        target.FontSize = source.FontSize;
+        target.Color = source.Color;
+    }
+
+    private bool AreAllPredefinedTextsAdded()
+    {
+        return predefinedTexts.All(predef => CustomTexts.Any(ct => ct.Text == predef.Text));
+    }
+}
+
+<div class="customtext-container mt-2">
+    <h2>Lägg till fritext</h2>
+    <!-- Action Buttons -->
+    <div class="form-group">
+        <button @onclick="PrepTempCustomText" class="btn btn-primary btn-sm">Lägg till egen fritext</button>
+        @if (!AreAllPredefinedTextsAdded())
+        {
+            <button @onclick="AddPrdfndCustomText" class="btn btn-primary btn-sm">Lägg till all förslagna fritext</button>
+        }
+        @if (CustomTexts.Count >= 2)
+        {
+            <button @onclick="DeleteAllCustomTexts" class="btn btn-danger btn-sm">Ta bort all fritext</button>
+        }
+    </div>
+
+    <!-- Temporary Custom Text Editing UI -->
+    @foreach (var tempText in TempCustomTexts)
+    {
+        @if (tempText.IsInEditMode)
+        {
+            <div>
+                <div class="row">
+                    <div class="col-sm-6 col-md-4">
+                        <div class="form-group">
+                            <label>Text</label>
+                            <input type="text" class="form-control form-control-sm" placeholder="Text" @bind="tempText.Text">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>X Position</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="X Position" @bind="tempText.PositionX">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>Y Position</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="Y Position" @bind="tempText.PositionY">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>Typsnitt Storlek</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="Typsnitt Storlek" @bind="tempText.FontSize">
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-md-2">
+                        <div class="form-group">
+                            <label>Färg</label>
+                            <input type="color" class="form-control form-control-sm" @bind="tempText.Color">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button @onclick="() => AddCustomText(tempText)" class="btn btn-primary btn-sm">OK</button>
+                    <button @onclick="() => CancelCustomText(tempText) " class="btn btn-danger btn-sm">Cancel</button>
+                    @if (!AreAllPredefinedTextsAdded())
+                    {
+                        <button @onclick="(AddOrUpdateTempPredefinedText)" class="btn btn-secondary btn-sm">Fyll med nästa förslagna fritext</button>
+                    }
+                </div>
+
+            </div>
+        }
+    }
+
+    <!-- Permanent Custom Texts Display -->
+    @foreach (var customText in CustomTexts)
+    {
+        <div class="row">
+            <div class="col">
+                <div class="form-group">
+                    <span>@customText.Text</span>
+                    <button @onclick="() => ToggleEditMode(customText, true)" class="btn btn-secondary btn-sm mr-2">Redigera</button>
+                    <button @onclick="() => RemoveCustomText(customText)" class="btn btn-danger btn-sm">Ta bort</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>

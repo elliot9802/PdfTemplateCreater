@@ -1,0 +1,9 @@
+﻿.customtext-container {
+    max-height: 21rem;
+    background-color: #f8f9fa;
+}
+
+    .customtext-container .btn-primary {
+        margin-right: .4rem;
+    }
+

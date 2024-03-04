@@ -17,7 +17,7 @@
     };
 
     // UI Event Handlers
-    private void AddCustomText(CustomTextElement customText)
+    private void AddOrSaveText(CustomTextElement customText)
     {
         if (!string.IsNullOrEmpty(customText.Text))
         {
@@ -39,31 +39,7 @@
         }
     }
 
-    private void CancelCustomText(CustomTextElement customText) => TempCustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
-
-    private void PrepTempCustomText()
-    {
-        if (!TempCustomTexts.Any(t => t.IsInEditMode))
-        {
-            TempCustomTexts.Add(new CustomTextElement { IsInEditMode = true });
-        }
-    }
-
-    private void AddOrUpdateTempPredefinedText()
-    {
-        var nextPredefinedText = GetNextPredefinedTextNotInCustomTexts();
-        var openTempText = TempCustomTexts.FirstOrDefault(t => t.IsInEditMode);
-        if (openTempText != null)
-        {
-            UpdateCustomTextElement(openTempText, nextPredefinedText);
-        }
-        else
-        {
-            TempCustomTexts.Add(CreateTempCustomTextFromPredefined(nextPredefinedText));
-        }
-    }
-
-    private void AddPrdfndCustomText()
+    private void AddAllPredefinedTexts()
     {
         predefinedTexts.ForEach(predef =>
         {
@@ -74,70 +50,89 @@
         });
     }
 
-    private void DeleteAllCustomTexts()
+    private void AddNextPredefinedText()
     {
-        CustomTexts.Clear();
+        var nextPredefinedText = NextUnaddedPredefined();
+        var openTempText = TempCustomTexts.FirstOrDefault(t => t.IsInEditMode);
+        if (openTempText != null)
+        {
+            UpdateTextElement(openTempText, nextPredefinedText);
+        }
+        else
+        {
+            TempCustomTexts.Add(PredefinedToTempText(nextPredefinedText));
+        }
     }
 
-    private void RemoveCustomText(CustomTextElement customText)
+    private void CancelCustomText(CustomTextElement customText) => TempCustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
+
+    private void ClearTexts() => CustomTexts.Clear();
+
+    private void InitEditNewText()
+    {
+        if (!TempCustomTexts.Any(t => t.IsInEditMode))
+        {
+            TempCustomTexts.Add(new CustomTextElement { IsInEditMode = true });
+        }
+    }
+
+    private void RemoveText(CustomTextElement customText)
     {
         CustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
         TempCustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
     }
 
-    private void ToggleEditMode(CustomTextElement customText, bool isInEditMode)
+    private void ToggleTextEditing(CustomTextElement customText, bool isInEditMode)
     {
-        if (isInEditMode)
+        if (!isInEditMode) return;
+
+        var existingTemp = TempCustomTexts.FirstOrDefault(t => t.CustomTextId == customText.CustomTextId);
+        if (existingTemp == null)
         {
-            // Check if the text is already in TempCustomTexts for editing
-            var existingTemp = TempCustomTexts.FirstOrDefault(t => t.CustomTextId == customText.CustomTextId);
-            if (existingTemp == null)
+            existingTemp = new CustomTextElement
             {
-                // If not, create a copy for editing and add it to TempCustomTexts
-                var editCopy = new CustomTextElement(customText.Text, customText.PositionX, customText.PositionY, customText.FontSize, customText.Color)
-                    {
-                        CustomTextId = customText.CustomTextId, // Use the same ID for tracking
-                        IsInEditMode = true
-                    };
-                TempCustomTexts.Add(editCopy);
-            }
+                CustomTextId = customText.CustomTextId,
+                Text = customText.Text,
+                PositionX = customText.PositionX,
+                PositionY = customText.PositionY,
+                FontSize = customText.FontSize,
+                Color = customText.Color,
+                IsInEditMode = true
+            };
+            TempCustomTexts.Add(existingTemp);
+        }
+        else
+        {
+            existingTemp.IsInEditMode = true;
         }
     }
 
     // Utility Methods
-    private CustomTextElement CreateTempCustomTextFromPredefined(CustomTextElement source) =>
-        new CustomTextElement(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
+    private bool AreAllPredefinedTextsAdded() => predefinedTexts.All(predef => CustomTexts.Any(ct => ct.Text == predef.Text));
 
-    private CustomTextElement? GetNextPredefinedTextNotInCustomTexts() =>
+    private CustomTextElement? NextUnaddedPredefined() =>
         predefinedTexts.FirstOrDefault(predef => CustomTexts.All(ct => ct.Text != predef.Text));
 
-    private void UpdateCustomTextElement(CustomTextElement target, CustomTextElement source)
-    {
-        target.Text = source.Text;
-        target.PositionX = source.PositionX;
-        target.PositionY = source.PositionY;
-        target.FontSize = source.FontSize;
-        target.Color = source.Color;
-    }
-
-    private bool AreAllPredefinedTextsAdded()
-    {
-        return predefinedTexts.All(predef => CustomTexts.Any(ct => ct.Text == predef.Text));
-    }
+    private CustomTextElement PredefinedToTempText(CustomTextElement source) =>
+        new CustomTextElement(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
+    
+    private void UpdateTextElement(CustomTextElement target, CustomTextElement source) =>
+        (target.Text, target.PositionX, target.PositionY, target.FontSize, target.Color) =
+        (source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color);
 }
 
 <div class="customtext-container mt-2">
     <h2>Lägg till fritext</h2>
     <!-- Action Buttons -->
     <div class="form-group">
-        <button @onclick="PrepTempCustomText" class="btn btn-primary btn-sm">Lägg till egen fritext</button>
+        <button @onclick="InitEditNewText" class="btn btn-primary btn-sm">Lägg till egen fritext</button>
         @if (!AreAllPredefinedTextsAdded())
         {
-            <button @onclick="AddPrdfndCustomText" class="btn btn-primary btn-sm">Lägg till all förslagna fritext</button>
+            <button @onclick="AddAllPredefinedTexts" class="btn btn-primary btn-sm">Lägg till all förslagna fritext</button>
         }
         @if (CustomTexts.Count >= 2)
         {
-            <button @onclick="DeleteAllCustomTexts" class="btn btn-danger btn-sm">Ta bort all fritext</button>
+            <button @onclick="ClearTexts" class="btn btn-danger btn-sm">Ta bort all fritext</button>
         }
     </div>
 
@@ -180,11 +175,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <button @onclick="() => AddCustomText(tempText)" class="btn btn-primary btn-sm spcl-btn">OK</button>
+                    <button @onclick="() => AddOrSaveText(tempText)" class="btn btn-primary btn-sm spcl-btn">OK</button>
                     <button @onclick="() => CancelCustomText(tempText) " class="btn btn-danger btn-sm spcl-btn">Cancel</button>
                     @if (!AreAllPredefinedTextsAdded())
                     {
-                        <button @onclick="(AddOrUpdateTempPredefinedText)" class="btn btn-secondary btn-sm spcl-btn">Fyll med nästa förslagna fritext</button>
+                        <button @onclick="(AddNextPredefinedText)" class="btn btn-secondary btn-sm spcl-btn">Fyll med nästa förslagna fritext</button>
                     }
                 </div>
 
@@ -199,8 +194,8 @@
             <div class="col">
                 <div class="form-group">
                     <span>@customText.Text</span>
-                    <button @onclick="() => ToggleEditMode(customText, true)" class="btn btn-secondary btn-sm mr-2">Redigera</button>
-                    <button @onclick="() => RemoveCustomText(customText)" class="btn btn-danger btn-sm">Ta bort</button>
+                    <button @onclick="() => ToggleTextEditing(customText, true)" class="btn btn-secondary btn-sm mr-2">Redigera</button>
+                    <button @onclick="() => RemoveText(customText)" class="btn btn-danger btn-sm">Ta bort</button>
                 </div>
             </div>
         </div>

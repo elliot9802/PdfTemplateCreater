@@ -17,6 +17,30 @@
     };
 
     // UI Event Handlers
+    private void AddCustomText(CustomTextElement customText)
+    {
+        if (!string.IsNullOrEmpty(customText.Text))
+        {
+            var existingText = CustomTexts.FirstOrDefault(ct => ct.CustomTextId == customText.CustomTextId);
+            if (existingText != null)
+            {
+                existingText.Text = customText.Text;
+                existingText.PositionX = customText.PositionX;
+                existingText.PositionY = customText.PositionY;
+                existingText.FontSize = customText.FontSize;
+                existingText.Color = customText.Color;
+            }
+            else
+            {
+                CustomTexts.Add(new CustomTextElement(customText.Text, customText.PositionX, customText.PositionY, customText.FontSize, customText.Color));
+            }
+
+            TempCustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
+        }
+    }
+
+    private void CancelCustomText(CustomTextElement customText) => TempCustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
+
     private void PrepTempCustomText()
     {
         if (!TempCustomTexts.Any(t => t.IsInEditMode))
@@ -25,30 +49,15 @@
         }
     }
 
-    private void AddCustomText(CustomTextElement customText)
-    {
-        if (!string.IsNullOrEmpty(customText.Text) && !CustomTexts.Contains(customText))
-        {
-            customText.IsInEditMode = false;
-            CustomTexts.Add(customText);
-            TempCustomTexts.Remove(customText);
-        }
-    }
-
-    private void CancelCustomText(CustomTextElement customText) => TempCustomTexts.Remove(customText);
-
-    // Data Processing Methods
     private void AddOrUpdateTempPredefinedText()
     {
         var nextPredefinedText = GetNextPredefinedTextNotInCustomTexts();
-        if (nextPredefinedText is null) return;
-
         var openTempText = TempCustomTexts.FirstOrDefault(t => t.IsInEditMode);
         if (openTempText != null)
         {
             UpdateCustomTextElement(openTempText, nextPredefinedText);
         }
-        else if (nextPredefinedText != null)
+        else
         {
             TempCustomTexts.Add(CreateTempCustomTextFromPredefined(nextPredefinedText));
         }
@@ -65,33 +74,42 @@
         });
     }
 
+    private void DeleteAllCustomTexts()
+    {
+        CustomTexts.Clear();
+    }
+
     private void RemoveCustomText(CustomTextElement customText)
     {
-        CustomTexts.Remove(customText);
-        TempCustomTexts.Remove(customText);
+        CustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
+        TempCustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
     }
 
     private void ToggleEditMode(CustomTextElement customText, bool isInEditMode)
     {
-        customText.IsInEditMode = isInEditMode;
-        if (!isInEditMode)
+        if (isInEditMode)
         {
-            TempCustomTexts.Remove(customText);
+            // Check if the text is already in TempCustomTexts for editing
+            var existingTemp = TempCustomTexts.FirstOrDefault(t => t.CustomTextId == customText.CustomTextId);
+            if (existingTemp == null)
+            {
+                // If not, create a copy for editing and add it to TempCustomTexts
+                var editCopy = new CustomTextElement(customText.Text, customText.PositionX, customText.PositionY, customText.FontSize, customText.Color)
+                    {
+                        CustomTextId = customText.CustomTextId, // Use the same ID for tracking
+                        IsInEditMode = true
+                    };
+                TempCustomTexts.Add(editCopy);
+            }
         }
     }
 
-    private void DeleteAllCustomTexts()
-    {
-        CustomTexts.Clear();
-        // Add any additional logic required after deleting texts, such as updating the UI
-    }
-
     // Utility Methods
-    private CustomTextElement? GetNextPredefinedTextNotInCustomTexts() =>
-        predefinedTexts.FirstOrDefault(predef => !CustomTexts.Any(ct => ct.Text == predef.Text));
-
     private CustomTextElement CreateTempCustomTextFromPredefined(CustomTextElement source) =>
         new CustomTextElement(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
+
+    private CustomTextElement? GetNextPredefinedTextNotInCustomTexts() =>
+        predefinedTexts.FirstOrDefault(predef => CustomTexts.All(ct => ct.Text != predef.Text));
 
     private void UpdateCustomTextElement(CustomTextElement target, CustomTextElement source)
     {
@@ -162,11 +180,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <button @onclick="() => AddCustomText(tempText)" class="btn btn-primary btn-sm">OK</button>
-                    <button @onclick="() => CancelCustomText(tempText) " class="btn btn-danger btn-sm">Cancel</button>
+                    <button @onclick="() => AddCustomText(tempText)" class="btn btn-primary btn-sm spcl-btn">OK</button>
+                    <button @onclick="() => CancelCustomText(tempText) " class="btn btn-danger btn-sm spcl-btn">Cancel</button>
                     @if (!AreAllPredefinedTextsAdded())
                     {
-                        <button @onclick="(AddOrUpdateTempPredefinedText)" class="btn btn-secondary btn-sm">Fyll med nästa förslagna fritext</button>
+                        <button @onclick="(AddOrUpdateTempPredefinedText)" class="btn btn-secondary btn-sm spcl-btn">Fyll med nästa förslagna fritext</button>
                     }
                 </div>
 

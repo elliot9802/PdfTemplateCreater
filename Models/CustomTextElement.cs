@@ -17,15 +17,17 @@ namespace Models
         {
         }
 
-        public string? Color { get; set; }
-        public float? FontSize { get; set; } = 10;
+        public Guid CustomTextId { get; set; } = Guid.NewGuid();
+        public string? Text { get; set; }
+
         public float? PositionX { get; set; }
 
         public float? PositionY { get; set; }
 
-        public string? Text { get; set; }
+        public string? Color { get; set; }
+        public float? FontSize { get; set; } = 10;
 
         [JsonIgnore]
-        public bool IsInEditMode { get; set; } = true;
+        public bool IsInEditMode { get; set; }
     }
 }

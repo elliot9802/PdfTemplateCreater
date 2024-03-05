@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Models;
 using Newtonsoft.Json;
 using Services;
+using System.IO.Compression;
 
 namespace AppPdfTemplateWApi.Controllers
 {
@@ -22,78 +23,94 @@ namespace AppPdfTemplateWApi.Controllers
             _pdfService = pdfTemplateService ?? throw new ArgumentNullException(nameof(pdfTemplateService));
         }
 
-        [HttpPost("CreateTemplate")]
+        //POST: api/PdfTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}
+        [HttpPost]
         public async Task<IActionResult> CreateTemplate([FromForm] TicketHandling ticketHandling,
                                                                 IFormFile bgFile,
                                                                 [FromForm] string? customTextElementsJson,
+                                                                [FromForm] string? name,
                                                                 int ticketId,
                                                                 bool saveToDb = false)
         {
+            if (saveToDb && string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest("Template name is required when saving to the database.");
+            }
+
+            _logger.LogInformation("Creating template with name: {name}", name ?? "N/A");
+
             if (!TryDeserializeCustomTextElements(customTextElementsJson, out var customTextElements))
             {
-                return BadRequestResponse("Invalid format for custom text elements.");
+                return BadRequest("Invalid format for custom text elements.");
             }
 
             ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
 
             if (bgFile == null || bgFile.Length == 0)
             {
-                return BadRequestResponse("Background file missing or empty.");
+                return BadRequest("Background file missing or empty.");
             }
 
             try
             {
-                var templateProcessResult = await ProcessTemplateCreation(ticketHandling, bgFile, ticketId, saveToDb);
-                return saveToDb ? Ok(templateProcessResult) : FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
+                var templateProcessResult = await ProcessTemplateCreation(ticketHandling, bgFile, name ?? "Template Name", ticketId, saveToDb);
+                return saveToDb ? Ok(templateProcessResult) : File(templateProcessResult, "application/pdf", $"{Guid.NewGuid()}.pdf");
             }
             catch (Exception ex)
             {
-                return InternalServerErrorResponse(ex);
+                _logger.LogError(ex, "An error occured while processing the template creation");
+                return StatusCode(500, "An internal server error occured.");
             }
         }
 
+        //DELETE: api/PdfTemplate/DeleteTicketTemplate/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteTicketTemplate(string id)
         {
             try
             {
-                var template = await _pdfService.DeleteTemplateAsync(Guid.Parse(id));
-                return Ok(template);
+                await _pdfService.DeleteTemplateAsync(Guid.Parse(id));
+                return Ok($"Template with ID {id} has been deleted successfully.");
             }
-            catch (ArgumentException ex)
+            catch (KeyNotFoundException ex)
             {
-                return NotFoundResponse(ex.Message);
+                _logger.LogWarning(ex, "Template with ID {id} not found.", id);
+                return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
-                return InternalServerErrorResponse(ex);
+                _logger.LogError(ex, "An error occured while deleting the template.");
+                return StatusCode(500, "An internal server error occured.");
             }
         }
 
-        //POST: api/pdftemplate/GetPredefinedTemplate/{showEventInfo}
-        [HttpPost("GetPredefinedTemplate")]
+        //POST: api/PdfTemplate/GetPredefinedTemplate?showEventInfo={showEventInfo}&ticketId={ticketId}
+        [HttpPost]
         public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
         {
             if (bgFile == null || bgFile.Length == 0)
             {
-                return BadRequestResponse("Background file missing or empty.");
+                return BadRequest("Background file missing or empty.");
             }
 
             try
             {
                 var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, ticketId, bgFile);
-                return FileResultFromBytes(templateProcessResult, $"{Guid.NewGuid()}.pdf");
+                return File(templateProcessResult, "application/pdf", $"{Guid.NewGuid()}.pdf");
             }
             catch (KeyNotFoundException ex)
             {
-                return NotFoundResponse(ex.Message);
+                _logger.LogWarning(ex, "Predefined template not found.");
+                return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
-                return InternalServerErrorResponse(ex);
+                _logger.LogError(ex, "An error occured while getting the predefined template.");
+                return StatusCode(500, "An internal server error occured.");
             }
         }
 
+        //GET: api/PdfTemplate/GetTicketTemplate?ticketTemplateId={ticketTemplateId}
         [HttpGet]
         public async Task<IActionResult> GetTicketTemplate(Guid? ticketTemplateId = null)
         {
@@ -110,19 +127,25 @@ namespace AppPdfTemplateWApi.Controllers
                     return Ok(templates);
                 }
             }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Template with {id} not found.", ticketTemplateId);
+                return NotFound(ex.Message);
+            }
             catch (Exception ex)
             {
-                return InternalServerErrorResponse(ex);
+                _logger.LogError(ex, "An error occured while retrieving the template(s).");
+                return StatusCode(500, "An internal server error occured.");
             }
         }
 
-        [HttpPut("UpdateTemplate")]
+        //PUT: api/PdfTemplate/UpdateTemplate
+        [HttpPut]
         public async Task<IActionResult> UpdateTemplate([FromBody] TicketTemplateDto templateDto)
         {
-            _logger.LogInformation("Received template for update: {templateDto}", JsonConvert.SerializeObject(templateDto));
             if (templateDto == null || templateDto.TicketTemplateId == Guid.Empty)
             {
-                return BadRequestResponse("Invalid template data.");
+                return BadRequest("Invalid template data.");
             }
 
             try
@@ -132,45 +155,49 @@ namespace AppPdfTemplateWApi.Controllers
             }
             catch (KeyNotFoundException ex)
             {
-                return NotFoundResponse(ex.Message);
+                _logger.LogWarning(ex, "Template to update not found.");
+                return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
-                return InternalServerErrorResponse(ex);
+                _logger.LogError(ex, "An error occured while updating the template.");
+                return StatusCode(500, "An internal server error occured.");
+            }
+        }
+
+        //POST: api/PdfTemplate/CreateCombinedPdf
+        [HttpPost]
+        public async Task<IActionResult> CreateCombinedPdf(Guid webbUid)
+        {
+            string outputPath = Path.Combine(Path.GetTempPath(), $"Tickets_{Guid.NewGuid()}.pdf");
+
+            try
+            {
+                byte[] pdfBytes = await _pdfService.CreateCombinedPdfAsync(webbUid, outputPath);
+
+                System.IO.File.Delete(outputPath);
+
+                return File(pdfBytes, "application/pdf", $"Tickets_{webbUid}.pdf");
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogError(ex, "Failed to find tickets: {ErrorMessage}", ex.Message);
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating combined PDF: {ErrorMessage}", ex.Message);
+                return StatusCode(500, "Internal Server Error");
             }
         }
 
         // Helper methods
-        private IActionResult BadRequestResponse(string message)
-        {
-            _logger.LogWarning(message);
-            return BadRequest(new { message });
-        }
-
         private async Task CleanUpFiles(params string[] filePaths)
         {
             foreach (var filePath in filePaths.Where(filePath => _fileService.Exists(filePath)))
             {
                 await _fileService.DeleteAsync(filePath);
             }
-        }
-
-        private FileResult FileResultFromBytes(byte[] fileBytes, string fileName)
-        {
-            _logger.LogInformation("File {fileName} created successfully", fileName);
-            return File(fileBytes, "application/pdf", fileName);
-        }
-
-        private IActionResult InternalServerErrorResponse(Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred");
-            return StatusCode(500, new { message = "An error occurred", error = ex.InnerException });
-        }
-
-        private IActionResult NotFoundResponse(string message)
-        {
-            _logger.LogWarning("Resource not found: {ErrorMessage}", message);
-            return NotFound(new { message });
         }
 
         private async Task<byte[]> ProcessPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
@@ -206,7 +233,7 @@ namespace AppPdfTemplateWApi.Controllers
             return pdfBytes;
         }
 
-        private async Task<byte[]> ProcessTemplateCreation(TicketHandling ticketHandling, IFormFile bgFile, int ticketId, bool saveToDb)
+        private async Task<byte[]> ProcessTemplateCreation(TicketHandling ticketHandling, IFormFile bgFile, string name, int ticketId, bool saveToDb)
         {
             string tempBgFilePath = Path.GetRandomFileName();
             await using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
@@ -229,6 +256,7 @@ namespace AppPdfTemplateWApi.Controllers
             if (saveToDb)
             {
                 TemplateCUdto templateDetails = _pdfService.MapTicketHandlingToTemplateCUdto(ticketHandling);
+                templateDetails.Name = name;
                 await _pdfService.CreateTemplateAsync(templateDetails);
             }
             else

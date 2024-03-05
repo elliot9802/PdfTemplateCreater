@@ -26,7 +26,7 @@ namespace AppBlazor.Components
         {
             if (!string.IsNullOrEmpty(customText.Text))
             {
-                var existingText = CustomTexts.FirstOrDefault(ct => ct.CustomTextId == customText.CustomTextId);
+                var existingText = CustomTexts.Find(ct => ct.CustomTextId == customText.CustomTextId);
                 if (existingText != null)
                 {
                     existingText.Text = customText.Text;
@@ -48,7 +48,7 @@ namespace AppBlazor.Components
         {
             predefinedTexts.ForEach(predef =>
             {
-                if (!CustomTexts.Any(ct => ct.Text == predef.Text))
+                if (!CustomTexts.Exists(ct => ct.Text == predef.Text))
                 {
                     CustomTexts.Add(new CustomTextElement(predef.Text, predef.PositionX, predef.PositionY, predef.FontSize, predef.Color));
                 }
@@ -58,14 +58,20 @@ namespace AppBlazor.Components
         private void AddNextPredefinedText()
         {
             var nextPredefinedText = NextUnaddedPredefined();
-            var openTempText = TempCustomTexts.FirstOrDefault(t => t.IsInEditMode);
+            if (nextPredefinedText == null) return;
+
+            var openTempText = TempCustomTexts.Find(t => t.IsInEditMode);
             if (openTempText != null)
             {
                 UpdateTextElement(openTempText, nextPredefinedText);
             }
             else
             {
-                TempCustomTexts.Add(PredefinedToTempText(nextPredefinedText));
+                var tempText = PredefinedToTempText(nextPredefinedText);
+                if (tempText != null)
+                {
+                    TempCustomTexts.Add(tempText);
+                }
             }
         }
 
@@ -75,7 +81,7 @@ namespace AppBlazor.Components
 
         private void InitEditNewText()
         {
-            if (!TempCustomTexts.Any(t => t.IsInEditMode))
+            if (!TempCustomTexts.Exists(t => t.IsInEditMode))
             {
                 TempCustomTexts.Add(new CustomTextElement { IsInEditMode = true });
             }
@@ -91,7 +97,7 @@ namespace AppBlazor.Components
         {
             if (!isInEditMode) return;
 
-            var existingTemp = TempCustomTexts.FirstOrDefault(t => t.CustomTextId == customText.CustomTextId);
+            var existingTemp = TempCustomTexts.Find(t => t.CustomTextId == customText.CustomTextId);
             if (existingTemp == null)
             {
                 existingTemp = new CustomTextElement
@@ -113,13 +119,16 @@ namespace AppBlazor.Components
         }
 
         // Utility Methods
-        private bool AreAllPredefinedTextsAdded() => predefinedTexts.All(predef => CustomTexts.Any(ct => ct.Text == predef.Text));
+        private bool AreAllPredefinedTextsAdded() => predefinedTexts.TrueForAll(predef => CustomTexts.Exists(ct => ct.Text == predef.Text));
 
         private CustomTextElement? NextUnaddedPredefined() =>
-            predefinedTexts.FirstOrDefault(predef => CustomTexts.All(ct => ct.Text != predef.Text));
+            predefinedTexts.Find(predef => CustomTexts.TrueForAll(ct => ct.Text != predef.Text));
 
-        private CustomTextElement PredefinedToTempText(CustomTextElement source) =>
-            new CustomTextElement(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
+        private static CustomTextElement? PredefinedToTempText(CustomTextElement? source)
+        {
+            if (source == null) return null;
+            return new(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
+        }
 
         private void UpdateTextElement(CustomTextElement target, CustomTextElement source) =>
             (target.Text, target.PositionX, target.PositionY, target.FontSize, target.Color) =

@@ -3,7 +3,7 @@ using Syncfusion.Licensing;
 
 namespace Configuration
 {
-    public class AppConfig
+    public sealed class AppConfig
     {
 #if DEBUG
         private const string Appsettingfile = "appsettings.Development.json";
@@ -15,6 +15,7 @@ namespace Configuration
         private static AppConfig? _instance;
         private readonly IConfigurationRoot _configuration;
         private readonly ImagePaths _imgPaths;
+        private readonly string _apiBaseUrl;
 
         private AppConfig()
         {
@@ -30,6 +31,9 @@ namespace Configuration
 
             var syncfusionLicenseKey = _configuration["SyncfusionLicenseKey"];
             SyncfusionLicenseProvider.RegisterLicense(syncfusionLicenseKey);
+
+            _apiBaseUrl = _configuration["ApiSettings:BaseUrl"]
+                        ?? throw new InvalidOperationException("API base URL is not configured in appsettings.json.");
         }
 
         public static AppConfig Instance
@@ -54,6 +58,8 @@ namespace Configuration
         }
 
         public static ImagePaths ImagePathSettings => Instance._imgPaths;
+
+        public static string ApiBaseUrl => Instance._apiBaseUrl;
 
         public class DbLoginDetail
         {

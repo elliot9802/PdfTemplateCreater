@@ -9,146 +9,40 @@
 @using System.Net.Http.Headers
 
 <div class="create-template mb-0">
-<!-- File Upload Section -->
-<UserFileInputComponent OnFileUploaded="HandleFileUploaded" />
+    <!-- File Upload Section -->
+    <UserFileInputComponent OnFileUploaded="HandleFileUploaded" />
 
-<!-- Custom Text Elements -->
-<CustomTextComponent CustomTexts="@customTexts" />
-
-<!-- Dynamic Form Generation Section -->
-<PropertyGroupComponent TicketHandling="@ticketHandling" />
-
-<!-- Action Buttons -->
-<button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm">Preview PDF</button>
-<button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm">Save PDF Template</button>
-
-<!-- PDF Preview Section -->
-<PdfPreviewComponent PdfBase64="@pdfBase64" />
-
-<!-- PDF SaveToDb Section -->
-<ModalsComponent @ref="successModal"
-              OnStartFresh="HandleStartFresh"
-              OnContinueFromCurrent="HandleContinueFromCurrent"
-              OnSelectExistingTemplates="HandleSelectExistingTemplates"/>
-
-
-@if (!string.IsNullOrEmpty(ErrorMessage))
-{
-    <div class="validation-message" role="alert">
-        @ErrorMessage
+    <!-- Template Name Input Section -->
+    <div class="mb-3">
+        <label for="templateName" class="form-label">Template Name</label>
+        <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Enter template name" required>
     </div>
-}
+
+
+    <!-- Custom Text Elements -->
+    <CustomTextComponent CustomTexts="@customTexts" />
+
+    <!-- Dynamic Form Generation Section -->
+    <PropertyGroupComponent TicketHandling="@ticketHandling" />
+
+    <!-- Action Buttons -->
+    <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm">Preview PDF</button>
+    <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm">Save PDF Template</button>
+
+    <!-- PDF Preview Section -->
+    <PdfPreviewComponent PdfBase64="@pdfBase64" />
+
+    <!-- PDF SaveToDb Section -->
+    <ModalsComponent @ref="successModal"
+                     OnStartFresh="HandleStartFresh"
+                     OnContinueFromCurrent="HandleContinueFromCurrent"
+                     OnSelectExistingTemplates="HandleSelectExistingTemplates" />
+
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="validation-message" role="alert">
+            @ErrorMessage
+        </div>
+    }
 </div>
-@code {
-    // Class Members
-    public string? ErrorMessage { get; set; }
-    private ByteArrayContent? bgFileContent;
-    private string? pdfBase64;
-    private TicketHandling ticketHandling = new TicketHandling();
-    private List<CustomTextElement> customTexts = new List<CustomTextElement>();
-    private ModalsComponent successModal;
-
-    // Lifecycle Methods
-    protected override void OnInitialized()
-    {
-        base.OnInitialized();
-        InitializeState();
-    }
-
-    private void InitializeState()
-    {
-        ErrorMessage = null;
-        pdfBase64 = null;
-        ticketHandling = new TicketHandling();
-        customTexts = new List<CustomTextElement>();
-    }
-
-
-    private void HandleFileUploaded(ByteArrayContent fileContent)
-    {
-        bgFileContent = fileContent;
-        ErrorMessage = null;
-    }
-
-    private async Task CreatePdf(bool saveToDb)
-    {
-        if (bgFileContent == null)
-        {
-            ErrorMessage = "Please select a background file before proceeding";
-            return;
-        }
-
-        var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
-        if (string.IsNullOrEmpty(fileName))
-        {
-            ErrorMessage = "The file name was not provided.";
-            return;
-        }
-
-        var ticketId = "14825";
-        var requestUri = $"https://localhost:7104/api/PdfTemplate/CreateTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}";
-        var content = new MultipartFormDataContent();
-
-        content.Add(bgFileContent, "bgFile", fileName);
-
-        foreach (PropertyInfo property in ticketHandling.GetType().GetProperties())
-        {
-            var value = property.GetValue(ticketHandling, null)?.ToString();
-            if (value != null)
-            {
-                content.Add(new StringContent(value), property.Name);
-            }
-        }
-
-        var customTextElementsJson = JsonSerializer.Serialize(customTexts);
-
-        content.Add(new StringContent(customTextElementsJson, Encoding.UTF8, "application/json"), "customTextElementsJson");
-
-        try
-        {
-            var response = await HttpClient.PostAsync(requestUri, content);
-            if (response.IsSuccessStatusCode)
-            {
-                if (saveToDb)
-                {
-                    successModal.Show();
-                }
-                else
-                {
-                    var pdfData = await response.Content.ReadAsByteArrayAsync();
-                    pdfBase64 = Convert.ToBase64String(pdfData);
-                }
-
-            }
-            else
-            {
-                Console.WriteLine($"Failed to create PDF. Status code: {response.StatusCode}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Exception while calling CreatePdf API: {ex.Message}");
-        }
-    }
-
-    // Methods to handle user selection after saving
-    private Task HandleStartFresh()
-    {
-        successModal.Hide();
-        InitializeState();
-        return Task.CompletedTask;
-    }
-
-    private Task HandleContinueFromCurrent()
-    {
-        successModal.Hide();
-        return Task.CompletedTask;
-    }
-
-    private Task HandleSelectExistingTemplates()
-    {
-        NavigationManager.NavigateTo("/existing-templates");
-        successModal.Hide();
-        return Task.CompletedTask;
-    }
-}

@@ -72,15 +72,11 @@ namespace Services
                 {
                     TicketTemplateId = t.TicketTemplateId,
                     ShowEventInfo = t.ShowEventInfo,
-                    TicketHandlingJson = t.TicketsHandlingJson
+                    TicketHandlingJson = t.TicketsHandlingJson,
+                    Name = t.Name
                 }).FirstOrDefaultAsync();
 
-            if (template == null)
-            {
-                throw new KeyNotFoundException($"Template with ID {ticketTemplateId} not found.");
-            }
-
-            return template;
+            return template ?? throw new KeyNotFoundException($"Template with ID {ticketTemplateId} not found.");
         }
 
         public async Task<TicketsDataDto?> GetTicketDataAsync(int? ticketId, int? showEventInfo)
@@ -116,7 +112,8 @@ namespace Services
                 {
                     TicketTemplateId = t.TicketTemplateId,
                     ShowEventInfo = t.ShowEventInfo,
-                    TicketHandlingJson = t.TicketsHandlingJson
+                    TicketHandlingJson = t.TicketsHandlingJson,
+                    Name = t.Name
                 }).ToListAsync();
 
                 _logger.LogInformation("Retrieved {TemplateCount} templates", templates.Count);
@@ -128,6 +125,54 @@ namespace Services
                 throw;
             }
         }
+
+        public async Task<IEnumerable<TicketsDataDto>> GetTicketsDataByWebbUidAsync(Guid webbUid)
+        {
+            await using var db = TicketTemplateDbContext.Create(_dbLogin);
+
+            var tickets = await db.Vy_ShowTickets
+                                  .Where(ticket => ticket.WebbUid == webbUid)
+                                  .ToListAsync();
+
+            _logger.LogInformation("{ticketsCount} tickets retrieved for WebbUid: {webbUid}", tickets.Count, webbUid);
+            return tickets;
+        }
+
+        public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, string outputPath)
+        {
+            var ticketsData = await GetTicketsDataByWebbUidAsync(webbUid);
+            if (!ticketsData.Any())
+            {
+                _logger.LogWarning("No tickets found for WebbUid: {WebbUid}", webbUid);
+                throw new KeyNotFoundException($"No tickets found for WebbUid: {webbUid}.");
+            }
+
+            using var document = new PdfDocument();
+            foreach (var ticketData in ticketsData)
+            {
+                var ticketHandling = await GetPredefinedTicketHandlingAsync(ticketData.showEventInfo);
+                if (ticketHandling == null)
+                {
+                    _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", ticketData.showEventInfo);
+                    continue;
+                }
+
+                var page = document.Pages.Add();
+                await DrawPageContent(page, _backgroundImagePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
+            }
+
+            if (document.Pages.Count == 0)
+            {
+                _logger.LogWarning("No pages created in the document for WebbUid: {WebbUid}", webbUid);
+                throw new InvalidOperationException("Failed to create any pages in the PDF document.");
+            }
+
+            await SaveDocumentAsync(document, outputPath);
+            _logger.LogInformation("Combined PDF created successfully with {PageCount} pages at {OutputPath}", document.Pages.Count, outputPath);
+
+            return await File.ReadAllBytesAsync(outputPath);
+        }
+
 
         #endregion database methods
 
@@ -141,11 +186,9 @@ namespace Services
             {
                 await using var db = TicketTemplateDbContext.Create(_dbLogin);
 
-                // Determine the maximum ShowEventInfo in the database and increment it for the new template
                 var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => (int?)t.ShowEventInfo) ?? 0;
                 _src.ShowEventInfo = maxShowEventInfo + 1;
 
-                // Create a new TicketTemplateDbM object with the incremented ShowEventInfo
                 var newTicketTemplate = new TicketTemplateDbM(_src)
                 {
                     ShowEventInfo = _src.ShowEventInfo
@@ -168,12 +211,23 @@ namespace Services
         {
             await using var db = TicketTemplateDbContext.Create(_dbLogin);
             var templateToUpdate = await db.TicketTemplate.FindAsync(templateDto.TicketTemplateId) ?? throw new KeyNotFoundException($"Template with ID {templateDto.TicketTemplateId} not found.");
-            templateToUpdate.UpdateFromDTO(new TemplateCUdto
+            if (templateDto.Name != null)
             {
-                TicketTemplateId = templateDto.TicketTemplateId,
-                TicketHandlingJson = templateDto.TicketHandlingJson,
-                ShowEventInfo = templateToUpdate.ShowEventInfo
-            });
+                templateToUpdate.Name = templateDto.Name;
+            }
+            else
+            {
+                _logger.LogWarning("Attempted to update a template with a null name for template ID {id}.", templateDto.TicketTemplateId);
+                templateToUpdate.Name = "Default Name";
+            }
+            if (!string.IsNullOrWhiteSpace(templateDto.TicketHandlingJson))
+            {
+                var ticketHandlingFromDto = JsonConvert.DeserializeObject<TicketHandling>(templateDto.TicketHandlingJson);
+                if (ticketHandlingFromDto != null)
+                {
+                    templateToUpdate.TicketsHandling = ticketHandlingFromDto;
+                }
+            }
 
             await db.SaveChangesAsync();
 
@@ -216,13 +270,11 @@ namespace Services
 
         public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
         {
-            var templateCUdto = new TemplateCUdto
+            return new TemplateCUdto
             {
                 TicketsHandling = ticketHandling,
                 TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling),
             };
-
-            return templateCUdto;
         }
 
         #endregion database methods
@@ -261,7 +313,7 @@ namespace Services
             DrawBarcodeOrQRCode(page, ticketOrigin, scaleFactor, ticketHandling, ticketData);
             DrawScissorsLine(page.Graphics, ticketOrigin, scaleFactor, ticketHandling);
             DrawVitec(page.Graphics, scaleFactor);
-            if (ticketHandling.IncludeAd && !string.IsNullOrEmpty(ticketData.reklam1))
+            if (ticketHandling.IncludeAd)
             {
                 await DrawAd(page.Graphics, page, ticketData.reklam1, ticketOrigin, scaleFactor, regularFont, ticketHandling);
             }
@@ -276,11 +328,11 @@ namespace Services
 
             PointF adPosition = CalculateAdPosition(origin, scale, ticketHandling);
 
-            DrawHtmlContent(graphics, page, htmlContent, font, adPosition);
             if (!string.IsNullOrEmpty(imageUrl))
             {
                 await DrawAdImage(graphics, imageUrl, adPosition, scale);
             }
+            DrawHtmlContent(graphics, page, htmlContent, font, adPosition);
         }
 
         private static void DrawBackgroundImage(PdfPage page, string imagePath, PointF origin, float scale)
@@ -467,7 +519,7 @@ namespace Services
         private static string HandleHtmlEntities(string htmlContent)
         {
             // Handles common HTML entities
-            Dictionary<string, string> entities = new Dictionary<string, string>()
+            Dictionary<string, string> entities = new()
             {
                 {"&nbsp;", "\u00A0"}, {"&auml;", "ä"}, {"&aring;", "å"}, {"</p>", "</p><br/>"}
             };
@@ -527,7 +579,7 @@ namespace Services
             PdfBitmap image = new(ms);
 
             SizeF imageSize = new(image.Width * scale, image.Height * scale);
-            PointF imagePosition = new(adPosition.X, adPosition.Y + (imageSize.Height * scale));
+            PointF imagePosition = new(adPosition.X, adPosition.Y);
             graphics.DrawImage(image, imagePosition, imageSize);
         }
 

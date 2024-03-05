@@ -24,5 +24,9 @@ namespace Services
         Task<TicketTemplateDto> UpdateTemplateAsync(TicketTemplateDto templateDto);
 
         Task<List<TicketTemplateDto>> ReadTemplatesAsync();
+
+        Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, string outputPath);
+
+        Task<IEnumerable<TicketsDataDto>> GetTicketsDataByWebbUidAsync(Guid webbUid);
     }
 }

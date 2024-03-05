@@ -33,5 +33,6 @@
         public string? wbeventinfo { get; set; }
         public string Webbcode { get; set; }
         public string webbkod { get; set; }
+        public Guid WebbUid { get; set; }
     }
 }

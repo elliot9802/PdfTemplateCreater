@@ -23,6 +23,9 @@ namespace DbModels
         [Required]
         public string TicketsHandlingJson { get; set; }
 
+        [Required]
+        public override string Name { get; set; } = string.Empty;
+
         [Key]
         public override Guid TicketTemplateId { get; set; }
 
@@ -38,6 +41,7 @@ namespace DbModels
             TicketTemplateId = org.TicketTemplateId != Guid.Empty ? org.TicketTemplateId : Guid.NewGuid();
             TicketsHandlingJson = JsonConvert.SerializeObject(org.TicketsHandling ?? new TicketHandling());
             ShowEventInfo = org.ShowEventInfo;
+            Name = org.Name;
         }
 
         public void UpdateFromDTO(TemplateCUdto org)
@@ -49,14 +53,7 @@ namespace DbModels
             var ticketHandlingFromDto = !string.IsNullOrWhiteSpace(org.TicketHandlingJson)
                                         ? JsonConvert.DeserializeObject<TicketHandling>(org.TicketHandlingJson)
                                         : null;
-            if (ticketHandlingFromDto != null)
-            {
-                this.TicketsHandling = ticketHandlingFromDto;
-            }
-            else
-            {
-                this.TicketsHandling = new TicketHandling();
-            }
+            this.TicketsHandling = ticketHandlingFromDto ?? new TicketHandling();
 
             ShowEventInfo = org.ShowEventInfo;
         }

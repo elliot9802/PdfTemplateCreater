@@ -1,9 +1,37 @@
 ﻿@page "/"
+@using Services
+@inject HttpClient httpClient
+@inject ConfigService configService
 
-<PageTitle>Index</PageTitle>
+<div class="home-container">
+    <section class="introduction">
+        <h1>Välkommen till PDF-mallhanteraren</h1>
+        <p>Skapa, hantera och distribuera PDF-mallar för olika artiklar utan ansträngning, från evenemangsbiljetter till presentkort.</p>
+    </section>
 
-<h1>Hello, world!</h1>
+    <section class="features-overview">
+        <h2>Nyckelfunktioner</h2>
+        <ul>
+            <li>Dynamisk skapande av PDF-mallar: Anpassa mallar efter dina artiklar med val för allt.</li>
+            <li>Hantering av mallar: Uppdatera eller radera befintliga mallar enkelt.</li>
+            <li>Hög prestanda: Generera PDF:er snabbt, även för stora partier.</li>
+            <li>Snabbt val av fördesignade mallar: Välj snabbt mellan våra redan skapade designmallar för varierande artiklar.</li>
+        </ul>
+    </section>
+</div>
 
-Welcome to your new app.
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await httpClient.GetAsync("https://localhost:7104/api/PdfTemplate/WarmUp");
+            Console.WriteLine("API and database warmed up successfully.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred during the warm-up process: {ex.Message}");
+        }
+    }
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+}

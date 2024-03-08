@@ -11,9 +11,9 @@
                     @ModalBody
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary btn-sm" @onclick="StartFresh">Start Fresh</button>
-                    <button class="btn btn-secondary btn-sm" @onclick="ContinueFromCurrent">Continue From Current Point</button>
-                    <button class="btn btn-info btn-sm" @onclick="SelectExistingTemplates">Select Between Existing Templates</button>
+                    <button class="btn btn-primary btn-sm" @onclick="StartFresh">Ny mall från början</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="ContinueFromCurrent">Ny mall från nuvarande punkt</button>
+                    <button class="btn btn-info btn-sm" @onclick="SelectExistingTemplates">Välj mellan befintliga mallar</button>
                 </div>
             </div>
         </div>
@@ -22,7 +22,7 @@
 
 @code {
     [Parameter]
-    public string ModalBody { get; set; } = "PDF Template saved successfully! What would you like to do next?";
+    public string ModalBody { get; set; } = "Din PDF-mall har sparats framgångsrikt! Vad vill du göra härnäst?";
 
     [Parameter]
     public EventCallback OnStartFresh { get; set; }

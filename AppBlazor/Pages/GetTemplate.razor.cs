@@ -31,13 +31,15 @@ namespace AppBlazor.Pages
             if (!isPredefined && selectedTemplateId.HasValue)
             {
                 var requestUri = configService.GetApiUrl($"/api/PdfTemplate/DeleteTicketTemplate/{selectedTemplateId}");
-
                 var response = await HttpClient.DeleteAsync(requestUri);
                 if (response.IsSuccessStatusCode)
                 {
                     await LoadTemplatesAsync();
                     pdfBase64 = null;
-                    await ShowTemporaryMessage("Template successfully deleted.", 5000);
+                    selectedShowEventInfo = null;
+                    selectedTemplateId = null;
+
+                    ErrorMessage = "Mallen har tagits bort.";
                 }
                 else
                 {
@@ -85,6 +87,7 @@ namespace AppBlazor.Pages
                 selectedTemplateId = template?.TicketTemplateId;
                 isPredefined = showEventInfo <= 3;
                 pdfBase64 = null;
+                ErrorMessage = string.Empty;
             }
             else
             {
@@ -101,7 +104,7 @@ namespace AppBlazor.Pages
             {
                 if (bgFileContent == null)
                 {
-                    ErrorMessage = "Please select a background file before proceeding";
+                    ErrorMessage = "Vänligen välj en bakgrundsbild innan du fortsätter";
                     isLoading = false;
                     return;
                 }
@@ -114,7 +117,25 @@ namespace AppBlazor.Pages
                     return;
                 }
 
-                const string ticketId = "15612";
+                string ticketId;
+                switch (selectedShowEventInfo)
+                {
+                    case 1:
+                        ticketId = "16838";
+                        break;
+
+                    case 2:
+                        ticketId = "16860";
+                        break;
+
+                    case 3:
+                        ticketId = "16704";
+                        break;
+
+                    default:
+                        ticketId = "16835";
+                        break;
+                }
                 var requestUri = configService.GetApiUrl($"/api/PdfTemplate/GetPredefinedTemplate/?showEventInfo={selectedShowEventInfo}&ticketId={ticketId}");
 
                 var content = new MultipartFormDataContent
@@ -148,11 +169,6 @@ namespace AppBlazor.Pages
                     isLoading = false;
                 }
             }
-        }
-
-        private async Task ShowTemporaryMessage(string message, int duration)
-        {
-            await JSRuntime.InvokeVoidAsync("showTemporaryMessage", message, duration);
         }
     }
 }

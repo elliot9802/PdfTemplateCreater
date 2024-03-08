@@ -48,7 +48,6 @@
 
         public float? ArtNotTextPositionY { get; set; }
 
-        // Properties for positioning elements on the ticket
         public float? ArtNrPositionX { get; set; }
 
         public float? ArtNrPositionY { get; set; }

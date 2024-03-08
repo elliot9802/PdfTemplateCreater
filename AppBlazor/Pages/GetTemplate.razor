@@ -6,11 +6,11 @@
 @inject NavigationManager NavigationManager
 @inject ConfigService ConfigService
 @inject IJSRuntime JSRuntime
-<h3>Existing Templates</h3>
+<h3>Befintliga mallar</h3>
 
 @if (templates == null)
 {
-    <p><em>Loading templates...</em></p>
+    <p><em>Laddar mallar...</em></p>
 }
 else
 {
@@ -40,11 +40,14 @@ else
         }
     </button>
 
-    <button class="btn btn-secondary mx-2" @onclick="EditTemplate">Redigera vald mall</button>
-
-    @if (!isPredefined && selectedTemplateId.HasValue)
+    @if (selectedTemplateId.HasValue)
     {
-        <button class="btn btn-danger" @onclick="DeleteTemplate">Radera vald mall</button>
+        <button class="btn btn-secondary mx-2" @onclick="EditTemplate">Redigera vald mall</button>
+
+        @if (!isPredefined)
+        {
+            <button class="btn btn-danger" @onclick="DeleteTemplate">Radera vald mall</button>
+        }
     }
 
     <!-- PDF Preview Section -->
@@ -58,14 +61,3 @@ else
     }
     <div id="temporaryMessage" class="alert alert-success mt-2" style="display: none;"></div>
 }
-<script>
-    function showTemporaryMessage(message, duration) {
-        var messageElement = document.getElementById('temporaryMessage');
-        messageElement.innerText = message;
-        messageElement.style.display = 'block';
-
-        setTimeout(function () {
-            messageElement.style.display = 'none';
-        }, duration);
-    }
-</script>

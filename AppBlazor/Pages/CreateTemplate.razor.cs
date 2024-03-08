@@ -25,7 +25,6 @@ namespace AppBlazor.Pages
         [Inject]
         public ConfigService configService { get; set; }
 
-        public IConfiguration? Configuration { get; set; }
         public string? ErrorMessage { get; set; }
 
         // Lifecycle Methods
@@ -48,7 +47,9 @@ namespace AppBlazor.Pages
 
             if (bgFileContent == null)
             {
-                ErrorMessage = "Please select a background file before proceeding";
+                ErrorMessage = "Vänligen välj en bakgrundsbild innan du fortsätter";
+                isPreviewLoading = false;
+                isSaveLoading = false;
                 return;
             }
 
@@ -56,10 +57,12 @@ namespace AppBlazor.Pages
             if (string.IsNullOrEmpty(fileName))
             {
                 ErrorMessage = "The file name was not provided.";
+                isPreviewLoading = false;
+                isSaveLoading = false;
                 return;
             }
 
-            const string ticketId = "15612";
+            const string ticketId = "16835";
             var requestUri = configService.GetApiUrl($"/api/PdfTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}");
             var content = new MultipartFormDataContent
             {
@@ -69,6 +72,13 @@ namespace AppBlazor.Pages
             if (saveToDb && !string.IsNullOrWhiteSpace(templateName))
             {
                 content.Add(new StringContent(templateName), "name");
+            }
+            else if (saveToDb && string.IsNullOrWhiteSpace(templateName))
+            {
+                ErrorMessage = "Vänligen välj ett namn för din mall innan du fortsätter";
+                isPreviewLoading = false;
+                isSaveLoading = false;
+                return;
             }
 
             foreach (PropertyInfo property in ticketHandling.GetType().GetProperties())
@@ -86,7 +96,7 @@ namespace AppBlazor.Pages
 
             try
             {
-                var response = await HttpClient.PostAsync(requestUri, content);
+                var response = await httpClient.PostAsync(requestUri, content);
                 if (response.IsSuccessStatusCode)
                 {
                     if (saveToDb)
@@ -136,7 +146,7 @@ namespace AppBlazor.Pages
 
         private Task HandleSelectExistingTemplates()
         {
-            NavigationManager.NavigateTo("/existing-templates");
+            navigationManager.NavigateTo("/existing-templates");
             successModal?.Hide();
             return Task.CompletedTask;
         }

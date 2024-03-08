@@ -12,8 +12,8 @@
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
-                        <label for="webbUidInput" class="form-label">WebbUid</label>
-                        <input type="text" class="form-control" id="webbUidInput" @bind="@webbUid" placeholder="Ange WebbUid:en">
+                        <label for="webbUidInput" class="form-label">User id</label>
+                        <input type="text" class="form-control" id="webbUidInput" @bind="@webbUid" placeholder="Ange id för köpet">
                     </div>
                     <button @onclick="PreviewTemplate" class="btn btn-primary"
                             disabled="@(isLoading || !webbUid.HasValue ? "disabled" : null)">

@@ -14,20 +14,18 @@ namespace AppBlazor.Pages
 
         private List<CustomTextElement> customTexts = new();
 
-        public IConfiguration? Configuration { get; set; }
+        private string? pdfBase64;
+        private ModalsComponent? successModal;
+        private string templateName = string.Empty;
+        private TicketHandling ticketHandling = new();
+
+        private bool isPreviewLoading;
+        private bool isSaveLoading;
 
         [Inject]
         public ConfigService configService { get; set; }
 
-        private string? pdfBase64;
-
-        private ModalsComponent? successModal;
-
-        private string templateName = string.Empty;
-
-        private TicketHandling ticketHandling = new();
-
-        // Class Members
+        public IConfiguration? Configuration { get; set; }
         public string? ErrorMessage { get; set; }
 
         // Lifecycle Methods
@@ -39,6 +37,15 @@ namespace AppBlazor.Pages
 
         private async Task CreatePdf(bool saveToDb)
         {
+            if (saveToDb)
+            {
+                isSaveLoading = true;
+            }
+            else
+            {
+                isPreviewLoading = true;
+            }
+
             if (bgFileContent == null)
             {
                 ErrorMessage = "Please select a background file before proceeding";
@@ -101,18 +108,30 @@ namespace AppBlazor.Pages
             {
                 Console.WriteLine($"Exception while calling CreatePdf API: {ex.Message}");
             }
-        }
-
-        private Task HandleContinueFromCurrent()
-        {
-            successModal?.Hide();
-            return Task.CompletedTask;
+            finally
+            {
+                if (saveToDb)
+                {
+                    isSaveLoading = false;
+                }
+                else
+                {
+                    isPreviewLoading = false;
+                }
+            }
         }
 
         private void HandleFileUploaded(ByteArrayContent fileContent)
         {
             bgFileContent = fileContent;
             ErrorMessage = null;
+        }
+
+        // Methods to handle user selection after saving
+        private Task HandleContinueFromCurrent()
+        {
+            successModal?.Hide();
+            return Task.CompletedTask;
         }
 
         private Task HandleSelectExistingTemplates()
@@ -122,7 +141,6 @@ namespace AppBlazor.Pages
             return Task.CompletedTask;
         }
 
-        // Methods to handle user selection after saving
         private Task HandleStartFresh()
         {
             successModal?.Hide();

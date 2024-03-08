@@ -14,8 +14,8 @@
 
     <!-- Template Name Input Section -->
     <div class="mb-3">
-        <label for="templateName" class="form-label">Template Name</label>
-        <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Enter template name" required>
+        <label for="templateName" class="form-label">Mallnamn</label>
+        <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Namnge din mall" required>
     </div>
 
 
@@ -26,8 +26,36 @@
     <PropertyGroupComponent TicketHandling="@ticketHandling" />
 
     <!-- Action Buttons -->
-    <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm">Preview PDF</button>
-    <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm">Save PDF Template</button>
+    <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm" disabled="@isPreviewLoading">
+        @if (isPreviewLoading)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>
+                Laddar...
+            </span>
+        }
+        else
+        {
+            <span>
+                Förhandsgranska PDF
+            </span>
+        }
+    </button>
+    <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm" disabled="@isSaveLoading">
+        @if (isSaveLoading)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>
+                Sparar...
+            </span>
+        }
+        else
+        {
+            <span>
+                Spara PDF mallen
+            </span>
+        }
+    </button>
 
     <!-- PDF Preview Section -->
     <PdfPreviewComponent PdfBase64="@pdfBase64" />

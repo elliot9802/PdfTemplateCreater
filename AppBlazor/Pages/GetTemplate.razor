@@ -1,15 +1,11 @@
 ﻿@page "/existing-templates"
-@using DbModels
 @using Models
 @using Services
 @using AppBlazor.Components
 @inject HttpClient HttpClient
-@using Newtonsoft.Json
 @inject NavigationManager NavigationManager
 @inject ConfigService ConfigService
-@using System.Net.Http.Headers
 @inject IJSRuntime JSRuntime
-
 <h3>Existing Templates</h3>
 
 @if (templates == null)
@@ -23,22 +19,32 @@ else
 
     <div class="my-2">
         <select class="form-control" @onchange="OnTemplateSelected">
-            <option value="">Select a Template</option>
+            <option value="">Välj en mall</option>
             @foreach (var template in templates.OrderBy(t => t.ShowEventInfo))
             {
                 <!-- Pass ShowEventInfo as the value -->
-                <option value="@template.ShowEventInfo">@($"Template {template.ShowEventInfo} - {(template.ShowEventInfo <= 3 ? "Predefined" : "User Added")}: {template.Name}")</option>
+                <option value="@template.ShowEventInfo">@($"Mall {template.ShowEventInfo} - {(template.ShowEventInfo <= 3 ? "Fördefinerad" : "Användartillagd")}: {template.Name}")</option>
             }
         </select>
     </div>
 
-    <button class="btn btn-primary" @onclick="PreviewTemplate" disabled="@(!selectedShowEventInfo.HasValue)">Preview</button>
+    <button class="btn btn-primary" @onclick="PreviewTemplate" disabled="@(!selectedShowEventInfo.HasValue || isLoading)">
+        @if (isLoading)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Laddar...</span>
+        }
+        else
+        {
+            <span>Förhandsgranska</span>
+        }
+    </button>
 
-    <button class="btn btn-secondary mx-2" @onclick="EditTemplate">Edit Selected Template</button>
+    <button class="btn btn-secondary mx-2" @onclick="EditTemplate">Redigera vald mall</button>
 
     @if (!isPredefined && selectedTemplateId.HasValue)
     {
-        <button class="btn btn-danger" @onclick="DeleteTemplate">Delete Selected Template</button>
+        <button class="btn btn-danger" @onclick="DeleteTemplate">Radera vald mall</button>
     }
 
     <!-- PDF Preview Section -->

@@ -14,6 +14,7 @@ namespace AppBlazor.Pages
         private int? selectedShowEventInfo;
         private Guid? selectedTemplateId;
         private List<TicketTemplateDto>? templates;
+        private bool isLoading;
 
         [Inject]
         public ConfigService configService { get; set; }
@@ -94,12 +95,14 @@ namespace AppBlazor.Pages
 
         private async Task PreviewTemplate()
         {
+            isLoading = true;
             ErrorMessage = string.Empty;
             if (selectedShowEventInfo.HasValue && selectedShowEventInfo > 0)
             {
                 if (bgFileContent == null)
                 {
                     ErrorMessage = "Please select a background file before proceeding";
+                    isLoading = false;
                     return;
                 }
 
@@ -107,6 +110,7 @@ namespace AppBlazor.Pages
                 if (string.IsNullOrEmpty(fileName))
                 {
                     ErrorMessage = "The file name was not provided.";
+                    isLoading = false;
                     return;
                 }
 
@@ -129,13 +133,19 @@ namespace AppBlazor.Pages
                     else
                     {
                         ErrorMessage = "Failed to preview the template.";
+                        isLoading = false;
                         Console.WriteLine($"Failed to preview PDF. Status code: {response.StatusCode}");
                     }
                 }
                 catch (Exception ex)
                 {
                     ErrorMessage = "An error occurred while attempting to preview the template.";
+                    isLoading = false;
                     Console.WriteLine($"Exception while calling PreviewTemplate API: {ex.Message}");
+                }
+                finally
+                {
+                    isLoading = false;
                 }
             }
         }

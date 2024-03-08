@@ -86,7 +86,7 @@ namespace AppBlazor.Pages
 
             try
             {
-                var requestUri = configService.GetApiUrl("/api/PdfTemplate/UpdateTemplate/UpdateTemplate");
+                var requestUri = configService.GetApiUrl("/api/PdfTemplate/UpdateTemplate");
                 var response = await HttpClient.PutAsync(requestUri, content);
                 if (response.IsSuccessStatusCode)
                 {

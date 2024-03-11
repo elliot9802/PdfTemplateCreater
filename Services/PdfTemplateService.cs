@@ -39,6 +39,73 @@ namespace Services
 
         #region database methods
 
+        //public async Task<int> SaveFileToDatabaseAsync(byte[] fileData, int fileTypeID, int fileCategoryID, string description, string name)
+        //{
+        //    if (fileData == null || fileData.Length == 0)
+        //    {
+        //        _logger.LogError("Attempted to save an empty or null file data.");
+        //        throw new ArgumentException("The file data cannot be empty or null.");
+        //    }
+
+        //    await using var db = TicketTemplateDbContext.Create(_dbLogin);
+        //    var fileStorage = new FileStorage
+        //    {
+        //        Data = fileData,
+        //        CreateTime = DateTime.UtcNow,
+        //        ValidState = 1 // Assuming 1 is for valid
+        //    };
+
+        //    try
+        //    {
+        //        await db.FileStorage.AddAsync(fileStorage);
+        //        await db.SaveChangesAsync();
+
+        //        var fileDescription = new FileDescription
+        //        {
+        //            FileStorageID = fileStorage.FileStorageID,
+        //            FileTypeID = fileTypeID,
+        //            FileCategoryID = fileCategoryID,
+        //            Description = description,
+        //            Name = name,
+        //            CreateTime = DateTime.UtcNow,
+        //            ValidState = 1
+        //        };
+
+        //        await db.FileDescription.AddAsync(fileDescription);
+        //        await db.SaveChangesAsync();
+
+        //        return fileStorage.FileStorageID; // Return the ID of the saved file for linking purposes
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error saving file to database. Details: {Message}", ex.Message);
+        //        throw new InvalidOperationException("Failed to save the file to the database.", ex);
+        //    }
+        //}
+
+        //public async Task<byte[]> GetFileDataAsync(int fileStorageID)
+        //{
+        //    await using var db = TicketTemplateDbContext.Create(_dbLogin);
+
+        //    try
+        //    {
+        //        var fileStorage = await db.FileStorage.FindAsync(fileStorageID);
+
+        //        if (fileStorage == null)
+        //        {
+        //            _logger.LogWarning("File with ID {FileStorageID} not found.", fileStorageID);
+        //            throw new KeyNotFoundException($"File with ID {fileStorageID} not found.");
+        //        }
+
+        //        return fileStorage.Data;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error retrieving file data for FileStorageID {FileStorageID}. Details: {Message}", fileStorageID, ex.Message);
+        //        throw new InvalidOperationException($"Failed to retrieve the file data for FileStorageID {fileStorageID}.", ex);
+        //    }
+        //}
+
         public async Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int showEventInfo)
         {
             try
@@ -79,7 +146,7 @@ namespace Services
             return template ?? throw new KeyNotFoundException($"Template with ID {ticketTemplateId} not found.");
         }
 
-        public async Task<TicketsDataDto?> GetTicketDataAsync(int? ticketId, int? showEventInfo)
+        public async Task<TicketsDataView?> GetTicketDataAsync(int? ticketId, int? showEventInfo)
         {
             try
             {
@@ -126,7 +193,7 @@ namespace Services
             }
         }
 
-        public async Task<IEnumerable<TicketsDataDto>> GetTicketsDataByWebbUidAsync(Guid webbUid)
+        public async Task<IEnumerable<TicketsDataView>> GetTicketsDataByWebbUidAsync(Guid webbUid)
         {
             await using var db = TicketTemplateDbContext.Create(_dbLogin);
 
@@ -172,7 +239,6 @@ namespace Services
 
             return await File.ReadAllBytesAsync(outputPath);
         }
-
 
         #endregion database methods
 
@@ -279,7 +345,7 @@ namespace Services
 
         #endregion database methods
 
-        public async Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketHandling, string? backgroundImagePath)
+        public async Task CreatePdfAsync(string outputPath, TicketsDataView ticketData, TicketHandling ticketHandling, string? backgroundImagePath)
         {
             try
             {
@@ -302,7 +368,7 @@ namespace Services
             }
         }
 
-        private async Task DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataDto ticketData, TicketHandling ticketHandling, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
+        private async Task DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataView ticketData, TicketHandling ticketHandling, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
         {
             float scaleFactor = Math.Min(page.GetClientSize().Width / 1024f, 1);
             PointF ticketOrigin = new((page.GetClientSize().Width - (1024 * scaleFactor)) / 2, 0);
@@ -343,7 +409,7 @@ namespace Services
             page.Graphics.DrawImage(background, origin.X, origin.Y, 1024 * scale, 364 * scale);
         }
 
-        private static void DrawBarcodeOrQRCode(PdfPage page, PointF origin, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
+        private static void DrawBarcodeOrQRCode(PdfPage page, PointF origin, float scale, TicketHandling ticketHandling, TicketsDataView ticketData)
         {
             PointF barCodePosition = CalculateBarcodePosition(origin, scale, ticketHandling);
             if (ticketHandling.UseQRCode)
@@ -417,17 +483,17 @@ namespace Services
             }
         }
 
-        private void DrawTextContent(PdfGraphics graphics, PointF origin, float scale, TicketsDataDto ticketData, TicketHandling ticketHandling, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
+        private void DrawTextContent(PdfGraphics graphics, PointF origin, float scale, TicketsDataView ticketData, TicketHandling ticketHandling, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
         {
             PdfFont rutbokstavFont = new PdfStandardFont(PdfFontFamily.Helvetica, 24, PdfFontStyle.Bold);
 
-            // Log method entry
-            _logger.LogInformation("DrawTextContent method entered");
+            //// Log method entry
+            //_logger.LogInformation("DrawTextContent method entered");
 
-            // Log parameters
-            _logger.LogInformation("Origin: {origin}, Scale: {scale}", origin, scale);
-            _logger.LogInformation("TicketDetails: {ticketHandling}", JsonConvert.SerializeObject(ticketHandling));
-            _logger.LogInformation("TicketDetails: {ticketData}", JsonConvert.SerializeObject(ticketData));
+            //// Log parameters
+            //_logger.LogInformation("Origin: {origin}, Scale: {scale}", origin, scale);
+            //_logger.LogInformation("TicketDetails: {ticketHandling}", JsonConvert.SerializeObject(ticketHandling));
+            //_logger.LogInformation("TicketDetails: {ticketData}", JsonConvert.SerializeObject(ticketData));
 
             DrawTextIfCondition(graphics, ticketHandling.IncludeEmail, ticketData.eMail, origin, scale, ticketHandling.EmailPositionX, ticketHandling.EmailPositionY, regularFont);
 
@@ -477,7 +543,7 @@ namespace Services
 
             DrawTextIfCondition(graphics, ticketHandling.IncludeWebbcode, ticketData.Webbcode, origin, scale, ticketHandling.WebbcodePositionX, ticketHandling.WebbcodePositionY, regularFont);
 
-            _logger.LogInformation("DrawTextContent method exited");
+            //_logger.LogInformation("DrawTextContent method exited");
         }
 
         private static void DrawTextIfCondition(PdfGraphics graphics, bool condition, object? value, PointF origin, float scale, float? positionX, float? positionY, PdfFont font, string? format = null)
@@ -583,7 +649,7 @@ namespace Services
             graphics.DrawImage(image, imagePosition, imageSize);
         }
 
-        private static void DrawBarcode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketHandling ticketHandling, TicketsDataDto ticketData)
+        private static void DrawBarcode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketHandling ticketHandling, TicketsDataView ticketData)
         {
             PdfCode39Barcode barcode = new()
             {
@@ -612,7 +678,7 @@ namespace Services
             htmlTextElement.Draw(graphics, rect);
         }
 
-        private static void DrawQRCode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketsDataDto ticketData)
+        private static void DrawQRCode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketsDataView ticketData)
         {
             PdfQRBarcode qrCode = new()
             {

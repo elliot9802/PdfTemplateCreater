@@ -7,7 +7,7 @@ namespace DbContext
     public class TicketTemplateDbContext : Microsoft.EntityFrameworkCore.DbContext
     {
         public DbSet<TicketTemplateDbM> TicketTemplate { get; set; }
-        public DbSet<TicketsDataDto> Vy_ShowTickets { get; set; }
+        public DbSet<TicketsDataView> Vy_ShowTickets { get; set; }
 
         public TicketTemplateDbContext()
         { }
@@ -22,7 +22,7 @@ namespace DbContext
                 .Property(b => b.TicketsHandlingJson)
                 .HasColumnType("nvarchar(max)");
 
-            modelBuilder.Entity<TicketsDataDto>()
+            modelBuilder.Entity<TicketsDataView>()
                 .ToView("Vy_ShowTickets", "dbo")
                 .HasNoKey();
 

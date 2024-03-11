@@ -1,6 +1,6 @@
 ﻿namespace DbModels
 {
-    public class TicketsDataDto
+    public class TicketsDataView
     {
         public string? anamn { get; set; }
         public string? Artikelnamn { get; set; }

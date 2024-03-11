@@ -5,7 +5,7 @@ namespace Services
 {
     public interface IPdfTemplateService
     {
-        Task CreatePdfAsync(string outputPath, TicketsDataDto ticketData, TicketHandling ticketHandling, string backgroundImagePath);
+        Task CreatePdfAsync(string outputPath, TicketsDataView ticketData, TicketHandling ticketHandling, string backgroundImagePath);
 
         Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src);
 
@@ -17,7 +17,7 @@ namespace Services
 
         string GetTemporaryPdfFilePath();
 
-        Task<TicketsDataDto?> GetTicketDataAsync(int? ticketId, int? showEventInfo);
+        Task<TicketsDataView?> GetTicketDataAsync(int? ticketId, int? showEventInfo);
 
         TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling);
 
@@ -27,6 +27,6 @@ namespace Services
 
         Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, string outputPath);
 
-        Task<IEnumerable<TicketsDataDto>> GetTicketsDataByWebbUidAsync(Guid webbUid);
+        Task<IEnumerable<TicketsDataView>> GetTicketsDataByWebbUidAsync(Guid webbUid);
     }
 }

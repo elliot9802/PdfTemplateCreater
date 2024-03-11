@@ -4,7 +4,6 @@
 @using AppBlazor.Components
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
-@inject ConfigService ConfigService
 @inject IJSRuntime JSRuntime
 <h3>Befintliga mallar</h3>
 
@@ -53,11 +52,15 @@ else
     <!-- PDF Preview Section -->
     <PdfPreviewComponent PdfBase64="@pdfBase64" />
 
-    @if (!string.IsNullOrEmpty(ErrorMessage))
+    @if (!string.IsNullOrEmpty(SuccessMessage)) {
+        <div class="alert alert-success mt-2" role="alert">
+            @SuccessMessage
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
     {
         <div class="alert alert-danger mt-2" role="alert">
             @ErrorMessage
         </div>
     }
-    <div id="temporaryMessage" class="alert alert-success mt-2" style="display: none;"></div>
 }

@@ -8,33 +8,40 @@ namespace AppBlazor.Pages
 {
     public partial class EditTemplate
     {
+        // Dependency Injection Properties
+        private ConfigService? _configService;
+
+        [Inject]
+        public ConfigService? ConfigService
+        {
+            get => _configService ?? throw new InvalidOperationException("ConfigService is not configured.");
+            set => _configService = value;
+        }
+
+        // Component State Properties
+        [Parameter]
+        public Guid TemplateId { get; set; }
+
+        private TicketHandling ticketHandling = new();
+
         private readonly string pdfBase64 = string.Empty;
 
         private int showEventInfo;
 
         private string templateName = string.Empty;
 
-        private TicketHandling ticketHandling = new();
-
-        [Inject]
-        public ConfigService configService { get; set; }
-
         public string? ErrorMessage { get; set; }
-
-        [Parameter]
-        public Guid TemplateId { get; set; }
 
         protected override async Task OnInitializedAsync()
         {
             await LoadTemplateData(TemplateId);
         }
 
-        // Helper Methods
         private async Task LoadTemplateData(Guid templateId)
         {
             try
             {
-                var requestUri = configService.GetApiUrl($"/api/PdfTemplate/GetTicketTemplate?ticketTemplateId={templateId}");
+                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/GetTicketTemplate?ticketTemplateId={templateId}");
                 var response = await HttpClient.GetAsync(requestUri);
                 if (response.IsSuccessStatusCode)
                 {
@@ -43,14 +50,9 @@ namespace AppBlazor.Pages
 
                     if (templateDTO != null)
                     {
-                        if (!string.IsNullOrWhiteSpace(templateDTO.TicketHandlingJson))
-                        {
-                            ticketHandling = JsonConvert.DeserializeObject<TicketHandling>(templateDTO.TicketHandlingJson) ?? new TicketHandling();
-                        }
-                        else
-                        {
-                            ticketHandling = new TicketHandling();
-                        }
+                        ticketHandling = !string.IsNullOrWhiteSpace(templateDTO.TicketHandlingJson)
+                            ? JsonConvert.DeserializeObject<TicketHandling>(templateDTO.TicketHandlingJson) ?? new TicketHandling()
+                            : new TicketHandling();
                         showEventInfo = templateDTO.ShowEventInfo;
                         templateName = templateDTO.Name ?? string.Empty;
                     }
@@ -81,12 +83,11 @@ namespace AppBlazor.Pages
             };
 
             var jsonContent = JsonConvert.SerializeObject(templateDTO);
-            Console.WriteLine(jsonContent);
             var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
             try
             {
-                var requestUri = configService.GetApiUrl("/api/PdfTemplate/UpdateTemplate");
+                var requestUri = ConfigService!.GetApiUrl("/api/PdfTemplate/UpdateTemplate");
                 var response = await HttpClient.PutAsync(requestUri, content);
                 if (response.IsSuccessStatusCode)
                 {

@@ -21,11 +21,14 @@
 </div>
 
 @code {
+    private ConfigService ConfigService => configService ?? throw new InvalidOperationException("ConfigService is not configured.");
+
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            await httpClient.GetAsync("https://localhost:7104/api/PdfTemplate/WarmUp");
+            var requestUri = ConfigService.GetApiUrl($"/api/PdfTemplate/WarmUp");
+            await httpClient.GetAsync(requestUri);
             Console.WriteLine("API and database warmed up successfully.");
         }
         catch (Exception ex)

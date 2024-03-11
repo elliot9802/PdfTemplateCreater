@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 using Models;
 using Newtonsoft.Json;
 using Services;
@@ -8,17 +7,32 @@ namespace AppBlazor.Pages
 {
     public partial class GetTemplate
     {
-        private ByteArrayContent? bgFileContent;
-        private bool isPredefined = true;
-        private string? pdfBase64;
-        private int? selectedShowEventInfo;
-        private Guid? selectedTemplateId;
-        private List<TicketTemplateDto>? templates;
-        private bool isLoading;
+        // Dependency Injection Properties
+        private ConfigService? _configService;
 
         [Inject]
-        public ConfigService configService { get; set; }
+        public ConfigService? ConfigService
+        {
+            get => _configService ?? throw new InvalidOperationException("ConfigService is not configured.");
+            set => _configService = value;
+        }
 
+        // Component State Properties
+        private List<TicketTemplateDto>? templates;
+
+        private ByteArrayContent? bgFileContent;
+
+        private bool isLoading;
+
+        private bool isPredefined = true;
+
+        private string? pdfBase64;
+
+        private int? selectedShowEventInfo;
+
+        private Guid? selectedTemplateId;
+
+        public string? SuccessMessage { get; set; }
         public string? ErrorMessage { get; set; }
 
         protected override async Task OnInitializedAsync()
@@ -30,7 +44,7 @@ namespace AppBlazor.Pages
         {
             if (!isPredefined && selectedTemplateId.HasValue)
             {
-                var requestUri = configService.GetApiUrl($"/api/PdfTemplate/DeleteTicketTemplate/{selectedTemplateId}");
+                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/DeleteTicketTemplate/{selectedTemplateId}");
                 var response = await HttpClient.DeleteAsync(requestUri);
                 if (response.IsSuccessStatusCode)
                 {
@@ -39,7 +53,7 @@ namespace AppBlazor.Pages
                     selectedShowEventInfo = null;
                     selectedTemplateId = null;
 
-                    ErrorMessage = "Mallen har tagits bort.";
+                    SuccessMessage = "Mallen har tagits bort.";
                 }
                 else
                 {
@@ -64,7 +78,7 @@ namespace AppBlazor.Pages
 
         private async Task LoadTemplatesAsync()
         {
-            var requestUri = configService.GetApiUrl("/api/PdfTemplate/GetTicketTemplate");
+            var requestUri = ConfigService!.GetApiUrl("/api/PdfTemplate/GetTicketTemplate");
 
             var response = await HttpClient.GetAsync(requestUri);
             if (response.IsSuccessStatusCode)
@@ -117,26 +131,14 @@ namespace AppBlazor.Pages
                     return;
                 }
 
-                string ticketId;
-                switch (selectedShowEventInfo)
+                string ticketId = selectedShowEventInfo switch
                 {
-                    case 1:
-                        ticketId = "16838";
-                        break;
-
-                    case 2:
-                        ticketId = "16860";
-                        break;
-
-                    case 3:
-                        ticketId = "16704";
-                        break;
-
-                    default:
-                        ticketId = "16835";
-                        break;
-                }
-                var requestUri = configService.GetApiUrl($"/api/PdfTemplate/GetPredefinedTemplate/?showEventInfo={selectedShowEventInfo}&ticketId={ticketId}");
+                    1 => "16838",
+                    2 => "16860",
+                    3 => "16704",
+                    _ => "16835",
+                };
+                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/GetPredefinedTemplate/?showEventInfo={selectedShowEventInfo}&ticketId={ticketId}");
 
                 var content = new MultipartFormDataContent
                 {

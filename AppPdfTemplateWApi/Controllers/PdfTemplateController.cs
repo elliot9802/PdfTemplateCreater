@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Models;
 using Newtonsoft.Json;
 using Services;
-using System.IO.Compression;
 
 namespace AppPdfTemplateWApi.Controllers
 {
@@ -32,15 +31,17 @@ namespace AppPdfTemplateWApi.Controllers
                                                                 int ticketId,
                                                                 bool saveToDb = false)
         {
+            _logger.LogInformation("Processing template creation, Name: {name}, Save to DB: {saveToDb}", name, saveToDb);
+
             if (saveToDb && string.IsNullOrWhiteSpace(name))
             {
+                _logger.LogWarning("Template name is required when saving to the database.");
                 return BadRequest("Template name is required when saving to the database.");
             }
 
-            _logger.LogInformation("Creating template with name: {name}", name ?? "N/A");
-
             if (!TryDeserializeCustomTextElements(customTextElementsJson, out var customTextElements))
             {
+                _logger.LogWarning("Invalid format for custom text elements.");
                 return BadRequest("Invalid format for custom text elements.");
             }
 
@@ -48,6 +49,7 @@ namespace AppPdfTemplateWApi.Controllers
 
             if (bgFile == null || bgFile.Length == 0)
             {
+                _logger.LogWarning("Background file missing or empty.");
                 return BadRequest("Background file missing or empty.");
             }
 
@@ -90,6 +92,7 @@ namespace AppPdfTemplateWApi.Controllers
         {
             if (bgFile == null || bgFile.Length == 0)
             {
+                _logger.LogWarning("Background file missing or empty.");
                 return BadRequest("Background file missing or empty.");
             }
 
@@ -145,6 +148,7 @@ namespace AppPdfTemplateWApi.Controllers
         {
             if (templateDto == null || templateDto.TicketTemplateId == Guid.Empty)
             {
+                _logger.LogWarning("Invalid template data received.");
                 return BadRequest("Invalid template data.");
             }
 
@@ -165,7 +169,7 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
-        //POST: api/PdfTemplate/CreateCombinedPdf
+        //POST: api/PdfTemplate/CreateCombinedPdf?webbUid={webbUid}
         [HttpPost]
         public async Task<IActionResult> CreateCombinedPdf(Guid webbUid)
         {
@@ -191,12 +195,36 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
+        [HttpGet]
+        public async Task<IActionResult> WarmUp()
+        {
+            try
+            {
+                await _pdfService.ReadTemplatesAsync();
+                _logger.LogInformation("API and database warmed up successfully.");
+                return Ok("Warm-up successful");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred during the warm-up process.");
+                return StatusCode(500, "An internal server error occurred during warm-up.");
+            }
+        }
+
         // Helper methods
         private async Task CleanUpFiles(params string[] filePaths)
         {
             foreach (var filePath in filePaths.Where(filePath => _fileService.Exists(filePath)))
             {
-                await _fileService.DeleteAsync(filePath);
+                try
+                {
+                    _logger.LogInformation("Attempting to delete file: {filePath}", filePath);
+                    await _fileService.DeleteAsync(filePath);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to delete file: {filePath}. Continuing cleanup", filePath);
+                }
             }
         }
 
@@ -272,15 +300,23 @@ namespace AppPdfTemplateWApi.Controllers
         private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements)
         {
             elements = null;
-
             if (string.IsNullOrWhiteSpace(json))
             {
-                elements = new List<CustomTextElement>();
                 return true;
             }
             try
             {
-                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json);
+                var settings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.None,
+                    Error = (sender, args) =>
+                    {
+                        _logger.LogError(args.ErrorContext.Error, "Deserialization error.");
+                        args.ErrorContext.Handled = true;
+                    }
+                };
+
+                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json, settings);
                 elements ??= new List<CustomTextElement>();
                 return true;
             }

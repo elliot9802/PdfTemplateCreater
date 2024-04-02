@@ -17,10 +17,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("DefaultCorsPolicy", builder =>
     {
-        builder.WithOrigins("http://127.0.0.1:5500")
-               .SetIsOriginAllowedToAllowWildcardSubdomains()
-               .WithMethods("POST")
-               .WithHeaders("Content-Type");
+        builder.AllowAnyOrigin()
+               .AllowAnyHeader()
+               .AllowAnyHeader()
+               .AllowAnyMethod();
     });
 });
 /*

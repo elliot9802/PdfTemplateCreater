@@ -2,7 +2,6 @@
 {
     public class TicketHandling
     {
-        // Properties for customization options
 
         #region Include
 
@@ -102,13 +101,127 @@
 
         #endregion Position
 
-        public List<CustomTextElement>? CustomTextElements { get; set; } = new List<CustomTextElement>();
+        public List<CustomTextElement>? CustomTextElements { get; set; } = new();
 
         public bool AddScissorsLine { get; set; }
 
         public bool FlipBarcode { get; set; }
 
-        // Property to choose between QR code and Barcode
         public bool UseQRCode { get; set; }
+
+        public string DetermineTicketType()
+        {
+            if (!IncludeChairNr && IncludeSection)
+            {
+                return "Onumrerad";
+            }
+            else if (!IncludeChairNr && !IncludeSection)
+            {
+                return "Presentkort";
+            }
+            else
+            {
+                return "Numrerad";
+            }
+        }
+
+        /// <summary>
+        /// Create predefined TicketHandling instances for tickets.
+        /// </summary>
+        /// <returns>A TicketHandling instance with the predefined configuration</returns>
+        public static TicketHandling CreateNumreradTicketHandling()
+        {
+            return new TicketHandling
+            {
+                // Set up common inclusion flags
+                IncludeAd = true,
+                IncludeArtName = true,
+                IncludeArtNotText = false,
+                IncludeArtNr = false,
+                IncludeBookingNr = true,
+                IncludeChairNr = true,
+                IncludeChairRow = true,
+                IncludeContactPerson = true,
+                IncludeDatum = true,
+                IncludeDescription = false,
+                IncludeEmail = true,
+                IncludeEntrance = true,
+                IncludeEventDate = true,
+                IncludeEventName = true,
+                IncludeFacilityName = true,
+                IncludeLogorad1 = false,
+                IncludeLogorad2 = false,
+                IncludePrice = true,
+                IncludeRutBokstav = false,
+                IncludeSection = true,
+                IncludeServiceFee = true,
+                IncludeStrukturArtikel = false,
+                IncludeSubEventName = true,
+                IncludeWebbcode = false,
+                IncludeWebBookingNr = true,
+
+                // Set up common positions
+                ArtNamePositionX = 30.0f,
+                ArtNamePositionY = 185.0f,
+                BookingNrPositionX = 30.0f,
+                BookingNrPositionY = 162.0f,
+                ChairNrPositionX = 680.0f,
+                ChairNrPositionY = 210.0f,
+                ChairRowPositionX = 580.0f,
+                ChairRowPositionY = 210.0f,
+                ContactPersonPositionX = 30.0f,
+                ContactPersonPositionY = 130.0f,
+                DatumPositionX = 580.0f,
+                DatumPositionY = 100.0f,
+                EmailPositionX = 30.0f,
+                EmailPositionY = 112.0f,
+                EntrancePositionX = 788.0f,
+                EntrancePositionY = 210.0f,
+                EventDatePositionX = 30.0f,
+                EventDatePositionY = 240.0f,
+                EventNamePositionX = 580.0f,
+                EventNamePositionY = 35.0f,
+                FacilityNamePositionX = 585.0f,
+                FacilityNamePositionY = 135.0f,
+                PricePositionX = 30.0f,
+                PricePositionY = 210.0f,
+                SectionPositionX = 398.0f,
+                SectionPositionY = 210.0f,
+                ServiceFeePositionX = 250.0f,
+                ServiceFeePositionY = 210.0f,
+                SubEventNamePositionX = 560.0f,
+                SubEventNamePositionY = 65.0f,
+                WebBookingNrPositionX = 30.0f,
+                WebBookingNrPositionY = 146.0f,
+            };
+        }
+
+        public static TicketHandling CreateOnumreradTicketHandling()
+        {
+            var ticketHandling = CreateNumreradTicketHandling();
+            ticketHandling.IncludeChairNr = false;
+            ticketHandling.IncludeEntrance = false;
+
+            ticketHandling.ChairRowPositionX = 580.0f;
+            ticketHandling.ChairRowPositionY = 210.0f;
+            return ticketHandling;
+        }
+
+        public static TicketHandling CreatePresentkortTicketHandling()
+        {
+            var ticketHandling = CreateOnumreradTicketHandling();
+            ticketHandling.IncludeDatum = false;
+            ticketHandling.IncludeEntrance = false;
+            ticketHandling.IncludeFacilityName = false;
+            ticketHandling.IncludeSection = false;
+            ticketHandling.IncludeSubEventName = false;
+            ticketHandling.IncludeRutBokstav = true;
+
+            ticketHandling.RutBokstavPositionX = 825.0f;
+            ticketHandling.RutBokstavPositionY = 280.0f;
+            ticketHandling.EventNamePositionX = 540.0f;
+
+            return ticketHandling;
+        }
     }
 }

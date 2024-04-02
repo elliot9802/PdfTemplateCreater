@@ -153,8 +153,8 @@ namespace Services
                 await using var db = TicketTemplateDbContext.Create(_dbLogin);
                 var query = db.Vy_ShowTickets.AsNoTracking();
 
-                if (ticketId.HasValue)
-                    query = query.Where(t => t.platsbokad_id == ticketId.Value);
+                if (showEventInfo.HasValue)
+                    query = query.Where(t => t.showEventInfo == showEventInfo.Value);
                 else
                     _logger.LogWarning("GetTicketDataAsync requires either a ticketId or showEventInfo to filter the data.");
 
@@ -205,39 +205,17 @@ namespace Services
             return tickets;
         }
 
-        public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, string outputPath)
+        public TicketsDataView GenerateMockTicketData(string ticketType)
         {
-            var ticketsData = await GetTicketsDataByWebbUidAsync(webbUid);
-            if (!ticketsData.Any())
+            TicketsDataSeeder seeder = new();
+            try
             {
-                _logger.LogWarning("No tickets found for WebbUid: {WebbUid}", webbUid);
-                throw new KeyNotFoundException($"No tickets found for WebbUid: {webbUid}.");
+                return seeder.GenerateMockData(ticketType);
             }
-
-            using var document = new PdfDocument();
-            foreach (var ticketData in ticketsData)
+            catch (ArgumentException ex)
             {
-                var ticketHandling = await GetPredefinedTicketHandlingAsync(ticketData.showEventInfo);
-                if (ticketHandling == null)
-                {
-                    _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", ticketData.showEventInfo);
-                    continue;
-                }
-
-                var page = document.Pages.Add();
-                await DrawPageContent(page, _backgroundImagePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
+                throw new InvalidOperationException($"Failed to generate mock ticket data: {ex.Message}", ex);
             }
-
-            if (document.Pages.Count == 0)
-            {
-                _logger.LogWarning("No pages created in the document for WebbUid: {WebbUid}", webbUid);
-                throw new InvalidOperationException("Failed to create any pages in the PDF document.");
-            }
-
-            await SaveDocumentAsync(document, outputPath);
-            _logger.LogInformation("Combined PDF created successfully with {PageCount} pages at {OutputPath}", document.Pages.Count, outputPath);
-
-            return await File.ReadAllBytesAsync(outputPath);
         }
 
         #endregion database methods
@@ -345,10 +323,49 @@ namespace Services
 
         #endregion database methods
 
-        public async Task CreatePdfAsync(string outputPath, TicketsDataView ticketData, TicketHandling ticketHandling, string? backgroundImagePath)
+        public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, string outputPath)
+        {
+            var ticketsData = await GetTicketsDataByWebbUidAsync(webbUid);
+            if (!ticketsData.Any())
+            {
+                _logger.LogWarning("No tickets found for WebbUid: {WebbUid}", webbUid);
+                throw new KeyNotFoundException($"No tickets found for WebbUid: {webbUid}.");
+            }
+
+            using var document = new PdfDocument();
+            foreach (var ticketData in ticketsData)
+            {
+                var ticketHandling = await GetPredefinedTicketHandlingAsync(ticketData.showEventInfo);
+                if (ticketHandling == null)
+                {
+                    _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", ticketData.showEventInfo);
+                    continue;
+                }
+
+                var page = document.Pages.Add();
+                await DrawPageContent(page, _backgroundImagePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
+            }
+
+            if (document.Pages.Count == 0)
+            {
+                _logger.LogWarning("No pages created in the document for WebbUid: {WebbUid}", webbUid);
+                throw new InvalidOperationException("Failed to create any pages in the PDF document.");
+            }
+
+            await SaveDocumentAsync(document, outputPath);
+            _logger.LogInformation("Combined PDF created successfully with {PageCount} pages at {OutputPath}", document.Pages.Count, outputPath);
+
+            return await File.ReadAllBytesAsync(outputPath);
+        }
+
+        public async Task CreatePdfAsync(string outputPath, TicketHandling ticketHandling, string? backgroundImagePath)
         {
             try
             {
+                var ticketType = ticketHandling.DetermineTicketType();
+
+                var ticketData = GenerateMockTicketData(ticketType);
+
                 using PdfDocument document = new();
                 PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
                 PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
@@ -387,7 +404,6 @@ namespace Services
 
         private static async Task DrawAd(PdfGraphics graphics, PdfPage page, string htmlContent, PointF origin, float scale, PdfFont font, TicketHandling ticketHandling)
         {
-            // Extract the URL from the <img> tag, handle HTML entities and remove the <img> tag
             string? imageUrl = ExtractImageUrl(htmlContent);
             htmlContent = HandleHtmlEntities(htmlContent);
             htmlContent = RemoveImageTag(htmlContent);
@@ -430,20 +446,16 @@ namespace Services
             }
             foreach (var customTextElement in ticketHandling.CustomTextElements)
             {
-                // Skip if the current CustomTextElement or its Text property is null or empty
                 if (customTextElement == null || string.IsNullOrEmpty(customTextElement.Text))
                 {
                     continue;
                 }
 
-                // Create a font for the custom text
                 float fontSize = customTextElement.FontSize ?? 10f;
                 PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, fontSize);
 
-                // Initialize default color as black in case of null or invalid color string
                 PdfColor color = new(0, 0, 0);
 
-                // Check if the color string is properly formatted before attempting to convert it
                 if (!string.IsNullOrEmpty(customTextElement.Color) && customTextElement.Color.StartsWith('#') && customTextElement.Color.Length == 7)
                 {
                     color = new PdfColor(
@@ -452,16 +464,13 @@ namespace Services
                         Convert.ToByte(customTextElement.Color.Substring(5, 2), 16));
                 }
 
-                // Create a brush with the color
                 PdfBrush customBrush = new PdfSolidBrush(color);
 
-                // Calculate position based on scale and origin, providing a default value if the nullable float is null
                 PointF position = new(
-                    origin.X + ((customTextElement.PositionX ?? 0) * scale), // if PositionX is null, default to 0
-                    origin.Y + ((customTextElement.PositionY ?? 0) * scale)  // if PositionY is null, default to 0
+                    origin.X + ((customTextElement.PositionX ?? 0) * scale),
+                    origin.Y + ((customTextElement.PositionY ?? 0) * scale)
                 );
 
-                // Draw the text
                 graphics.DrawString(customTextElement.Text, customFont, customBrush, position);
             }
         }
@@ -474,10 +483,10 @@ namespace Services
                 PdfBitmap scissorsLineImage = new(scissorsImageStream);
 
                 PointF scissorsPosition = new(
-                origin.X, // Aligned with the left edge of the ticket
-                origin.Y + (364 * scale) + (10 * scale) // Just below the ticket, 10 units of space
+                origin.X,
+                origin.Y + (364 * scale) + (10 * scale)
                 );
-                SizeF scissorsSize = new(1024 * scale, scissorsLineImage.Height * scale); // Full width and scaled height
+                SizeF scissorsSize = new(1024 * scale, scissorsLineImage.Height * scale);
 
                 graphics.DrawImage(scissorsLineImage, scissorsPosition, scissorsSize);
             }
@@ -569,22 +578,20 @@ namespace Services
             PdfFont bottomTxtFont = new PdfStandardFont(PdfFontFamily.Helvetica, 12, PdfFontStyle.Italic);
             SizeF bottomTxtSize = bottomTxtFont.MeasureString(bottomTxt);
             PointF bottomTxtPosition = new(
-                (pageSize.Width - bottomTxtSize.Width) / 2, // Centered horizontally
-                pageSize.Height - bottomTxtSize.Height - (30 * scale) // 30 units from the bottom
+                (pageSize.Width - bottomTxtSize.Width) / 2,
+                pageSize.Height - bottomTxtSize.Height - (30 * scale)
             );
             graphics.DrawString(bottomTxt, bottomTxtFont, PdfBrushes.Black, bottomTxtPosition);
         }
 
         private static string? ExtractImageUrl(string htmlContent)
         {
-            // Extracts URL from <img> tag
             var match = Regex.Match(htmlContent, "<img.+?src=[\"'](.+?)[\"'].*?>", RegexOptions.IgnoreCase);
             return match.Success ? match.Groups[1].Value : null;
         }
 
         private static string HandleHtmlEntities(string htmlContent)
         {
-            // Handles common HTML entities
             Dictionary<string, string> entities = new()
             {
                 {"&nbsp;", "\u00A0"}, {"&auml;", "ä"}, {"&aring;", "å"}, {"</p>", "</p><br/>"}
@@ -598,7 +605,6 @@ namespace Services
 
         private static string RemoveImageTag(string htmlContent)
         {
-            // Removes <img> tag from HTML content
             return Regex.Replace(htmlContent, "<img.+?>", "", RegexOptions.IgnoreCase);
         }
 

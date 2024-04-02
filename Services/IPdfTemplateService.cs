@@ -5,11 +5,13 @@ namespace Services
 {
     public interface IPdfTemplateService
     {
-        Task CreatePdfAsync(string outputPath, TicketsDataView ticketData, TicketHandling ticketHandling, string backgroundImagePath);
+        Task CreatePdfAsync(string outputPath, TicketHandling ticketHandling, string backgroundImagePath);
 
         Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src);
 
         Task<ITicketTemplate> DeleteTemplateAsync(Guid id);
+
+        TicketsDataView GenerateMockTicketData(string ticketType);
 
         Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int showEventInfo);
 

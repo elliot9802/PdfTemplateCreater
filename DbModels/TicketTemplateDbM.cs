@@ -53,7 +53,7 @@ namespace DbModels
             var ticketHandlingFromDto = !string.IsNullOrWhiteSpace(org.TicketHandlingJson)
                                         ? JsonConvert.DeserializeObject<TicketHandling>(org.TicketHandlingJson)
                                         : null;
-            this.TicketsHandling = ticketHandlingFromDto ?? new TicketHandling();
+            TicketsHandling = ticketHandlingFromDto ?? new TicketHandling();
 
             ShowEventInfo = org.ShowEventInfo;
         }

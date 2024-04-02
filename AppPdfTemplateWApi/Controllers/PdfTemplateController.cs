@@ -1,3 +1,4 @@
+using DbModels;
 using Microsoft.AspNetCore.Mvc;
 using Models;
 using Newtonsoft.Json;
@@ -28,7 +29,6 @@ namespace AppPdfTemplateWApi.Controllers
                                                                 IFormFile bgFile,
                                                                 [FromForm] string? customTextElementsJson,
                                                                 [FromForm] string? name,
-                                                                int ticketId,
                                                                 bool saveToDb = false)
         {
             _logger.LogInformation("Processing template creation, Name: {name}, Save to DB: {saveToDb}", name, saveToDb);
@@ -55,7 +55,7 @@ namespace AppPdfTemplateWApi.Controllers
 
             try
             {
-                var templateProcessResult = await ProcessTemplateCreation(ticketHandling, bgFile, name ?? "Template Name", ticketId, saveToDb);
+                var templateProcessResult = await ProcessTemplateCreation(ticketHandling, bgFile, name ?? "Template Name", saveToDb);
                 return saveToDb ? Ok(templateProcessResult) : File(templateProcessResult, "application/pdf", $"{Guid.NewGuid()}.pdf");
             }
             catch (Exception ex)
@@ -88,7 +88,7 @@ namespace AppPdfTemplateWApi.Controllers
 
         //POST: api/PdfTemplate/GetPredefinedTemplate?showEventInfo={showEventInfo}&ticketId={ticketId}
         [HttpPost]
-        public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
+        public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, IFormFile bgFile)
         {
             if (bgFile == null || bgFile.Length == 0)
             {
@@ -98,7 +98,7 @@ namespace AppPdfTemplateWApi.Controllers
 
             try
             {
-                var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, ticketId, bgFile);
+                var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, bgFile);
                 return File(templateProcessResult, "application/pdf", $"{Guid.NewGuid()}.pdf");
             }
             catch (KeyNotFoundException ex)
@@ -228,7 +228,7 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
-        private async Task<byte[]> ProcessPredefinedTemplate(int showEventInfo, int ticketId, IFormFile bgFile)
+        private async Task<byte[]> ProcessPredefinedTemplate(int showEventInfo, IFormFile bgFile)
         {
             string tempBgFilePath = Path.GetRandomFileName();
             await using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
@@ -244,15 +244,15 @@ namespace AppPdfTemplateWApi.Controllers
                 throw new KeyNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
             }
 
-            var ticketData = await _pdfService.GetTicketDataAsync(ticketId, showEventInfo);
-            if (ticketData == null)
-            {
-                _logger.LogWarning("No template data found for ticket creation");
-                await CleanUpFiles(tempBgFilePath);
-                throw new KeyNotFoundException($"Ticket Id {ticketId} or {showEventInfo} Not Found");
-            }
+            //var ticketData = await _pdfService.GetTicketDataAsync(ticketId, showEventInfo);
+            //if (ticketData == null)
+            //{
+            //    _logger.LogWarning("No template data found for ticket creation");
+            //    await CleanUpFiles(tempBgFilePath);
+            //    throw new KeyNotFoundException($"{showEventInfo} Not Found");
+            //}
             var outputPath = _pdfService.GetTemporaryPdfFilePath();
-            await _pdfService.CreatePdfAsync(outputPath, ticketData, ticketHandlingData, tempBgFilePath);
+            await _pdfService.CreatePdfAsync(outputPath, ticketHandlingData, tempBgFilePath);
 
             var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
             _logger.LogInformation("PDF created successfully. FileName: {outputPath}", Path.GetFileName(outputPath));
@@ -261,7 +261,7 @@ namespace AppPdfTemplateWApi.Controllers
             return pdfBytes;
         }
 
-        private async Task<byte[]> ProcessTemplateCreation(TicketHandling ticketHandling, IFormFile bgFile, string name, int ticketId, bool saveToDb)
+        private async Task<byte[]> ProcessTemplateCreation(TicketHandling ticketHandling, IFormFile bgFile, string name, bool saveToDb)
         {
             string tempBgFilePath = Path.GetRandomFileName();
             await using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
@@ -269,16 +269,8 @@ namespace AppPdfTemplateWApi.Controllers
                 await bgFile.CopyToAsync(stream);
             }
 
-            var ticketData = await _pdfService.GetTicketDataAsync(ticketId, null);
-            if (ticketData == null)
-            {
-                _logger.LogWarning("No template data found for ticket creation");
-                await CleanUpFiles(tempBgFilePath);
-                throw new KeyNotFoundException($"Ticket Id {ticketId} Not Found");
-            }
-
             var outputPath = _pdfService.GetTemporaryPdfFilePath();
-            await _pdfService.CreatePdfAsync(outputPath, ticketData, ticketHandling, tempBgFilePath);
+            await _pdfService.CreatePdfAsync(outputPath, ticketHandling, tempBgFilePath);
 
             byte[] pdfBytes = Array.Empty<byte>();
             if (saveToDb)
@@ -322,7 +314,7 @@ namespace AppPdfTemplateWApi.Controllers
             }
             catch (JsonSerializationException ex)
             {
-                _logger.LogError(ex, "Error deserializing customTextElementsJson", ex.Message);
+                _logger.LogError(ex, "Error deserializing customTextElementsJson: {ErrorMessage}", ex.Message);
                 return false;
             }
         }

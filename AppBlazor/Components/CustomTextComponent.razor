@@ -2,14 +2,14 @@
     <h2>Lägg till fritext</h2>
     <!-- Action Buttons -->
     <div class="form-group">
-        <button @onclick="InitEditNewText" class="btn btn-primary btn-sm">Lägg till egen fritext</button>
+        <button @onclick="InitEditNewText" class="btn btn-primary btn-sm spcl-btn">Lägg till egen fritext</button>
         @if (!AreAllPredefinedTextsAdded())
         {
-            <button @onclick="AddAllPredefinedTexts" class="btn btn-primary btn-sm">Lägg till all förslagna fritext</button>
+            <button @onclick="AddAllPredefinedTexts" class="btn btn-primary btn-sm spcl-btn">Lägg till all förslagna fritext</button>
         }
         @if (CustomTexts.Count >= 2)
         {
-            <button @onclick="ClearTexts" class="btn btn-danger btn-sm">Ta bort all fritext</button>
+            <button @onclick="ClearTexts" class="btn btn-danger btn-sm spcl-btn">Ta bort all fritext</button>
         }
     </div>
 
@@ -40,8 +40,8 @@
                     </div>
                     <div class="col-sm-6 col-md-2">
                         <div class="form-group">
-                            <label>Typsnitt Storlek</label>
-                            <input type="number" class="form-control form-control-sm" placeholder="Typsnitt Storlek" @bind="tempText.FontSize">
+                            <label>FontSize</label>
+                            <input type="number" class="form-control form-control-sm" placeholder="FontSize" @bind="tempText.FontSize">
                         </div>
                     </div>
                     <div class="col-sm-6 col-md-2">

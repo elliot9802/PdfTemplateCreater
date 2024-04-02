@@ -2,9 +2,6 @@
 using Microsoft.AspNetCore.Components;
 using Models;
 using Services;
-using System.Reflection;
-using System.Text;
-using System.Text.Json;
 
 namespace AppBlazor.Pages
 {
@@ -24,14 +21,9 @@ namespace AppBlazor.Pages
         private List<CustomTextElement> customTexts = new();
 
         private TicketHandling ticketHandling = new();
-        private ByteArrayContent? bgFileContent;
         private ModalsComponent? successModal;
 
-        private bool isPreviewLoading;
-        private bool isSaveLoading;
         private string? pdfBase64;
-        private string templateName = string.Empty;
-
         public string? ErrorMessage { get; set; }
 
         // Lifecycle Methods
@@ -49,110 +41,136 @@ namespace AppBlazor.Pages
             InitializeState();
         }
 
-        private async Task CreatePdf(bool saveToDb)
+        private void OnTicketTypeChanged(ChangeEventArgs e)
         {
-            isSaveLoading = saveToDb;
-            isPreviewLoading = !saveToDb;
+            var selectedTicketType = e.Value?.ToString();
 
-            if (bgFileContent == null)
+            ticketHandling = selectedTicketType switch
             {
-                SetErrorMessageAndResetLoading("Vänligen välj en bakgrundsbild innan du fortsätter");
-                return;
-            }
-
-            var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
-            if (string.IsNullOrEmpty(fileName))
-            {
-                SetErrorMessageAndResetLoading("The file name was not provided.");
-                return;
-            }
-
-            if (saveToDb && string.IsNullOrWhiteSpace(templateName))
-            {
-                SetErrorMessageAndResetLoading("Vänligen välj ett namn för din mall innan du fortsätter");
-                return;
-            }
-
-            const string ticketId = "16835";
-            var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}");
-            var content = CreateMultipartFormDataContent(bgFileContent, fileName);
-
-            try
-            {
-                var response = await HttpClient.PostAsync(requestUri, content);
-                await HandleResponse(response, saveToDb);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Exception while calling CreatePdf API: {ex.Message}");
-            }
-            finally
-            {
-                isSaveLoading = false;
-                isPreviewLoading = false;
-            }
-        }
-
-        // Helper Methods
-        private void SetErrorMessageAndResetLoading(string message)
-        {
-            ErrorMessage = message;
-            isPreviewLoading = false;
-            isSaveLoading = false;
-        }
-
-        private MultipartFormDataContent CreateMultipartFormDataContent(ByteArrayContent bgFileContent, string fileName)
-        {
-            var content = new MultipartFormDataContent
-            {
-                { bgFileContent, "bgFile", fileName }
+                "Numrerad" => TicketHandling.CreateNumreradTicketHandling(),
+                "Onumrerad" => TicketHandling.CreateOnumreradTicketHandling(),
+                "Presentkort" => TicketHandling.CreatePresentkortTicketHandling(),
+                _ => new TicketHandling(),
             };
-
-            if (!string.IsNullOrWhiteSpace(templateName))
-            {
-                content.Add(new StringContent(templateName), "name");
-            }
-
-            foreach (PropertyInfo property in ticketHandling.GetType().GetProperties())
-            {
-                var value = property.GetValue(ticketHandling, null)?.ToString();
-                if (value != null)
-                {
-                    content.Add(new StringContent(value), property.Name);
-                }
-            }
-
-            var customTextElementsJson = JsonSerializer.Serialize(customTexts);
-            content.Add(new StringContent(customTextElementsJson, Encoding.UTF8, "application/json"), "customTextElementsJson");
-
-            return content;
         }
 
-        private async Task HandleResponse(HttpResponseMessage response, bool saveToDb)
+        private Task HandlePdfSaved(bool success)
         {
-            if (response.IsSuccessStatusCode)
+            if (success)
             {
-                if (saveToDb)
-                {
-                    successModal?.Show();
-                }
-                else
-                {
-                    var pdfData = await response.Content.ReadAsByteArrayAsync();
-                    pdfBase64 = Convert.ToBase64String(pdfData);
-                }
+                successModal?.Show();
             }
             else
             {
-                Console.WriteLine($"Failed to create PDF. Status code: {response.StatusCode}");
+                ErrorMessage = "Failed to save the PDF template.";
             }
+
+            return Task.CompletedTask;
         }
 
-        private void HandleFileUploaded(ByteArrayContent fileContent)
-        {
-            bgFileContent = fileContent;
-            ErrorMessage = null;
-        }
+        //private async Task CreatePdf(bool saveToDb)
+        //{
+        //    isSaveLoading = saveToDb;
+        //    isPreviewLoading = !saveToDb;
+
+        //    if (bgFileContent == null)
+        //    {
+        //        SetErrorMessageAndResetLoading("Vänligen välj en bakgrundsbild innan du fortsätter");
+        //        return;
+        //    }
+
+        //    var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
+        //    if (string.IsNullOrEmpty(fileName))
+        //    {
+        //        SetErrorMessageAndResetLoading("Filnamnet angavs inte.");
+        //        return;
+        //    }
+
+        //    if (saveToDb && string.IsNullOrWhiteSpace(templateName))
+        //    {
+        //        SetErrorMessageAndResetLoading("Vänligen välj ett namn för din mall innan du fortsätter");
+        //        return;
+        //    }
+
+        //    var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/CreateTemplate?saveToDb={saveToDb}");
+        //    var content = CreateMultipartFormDataContent(bgFileContent, fileName);
+
+        //    try
+        //    {
+        //        var response = await HttpClient.PostAsync(requestUri, content);
+        //        await HandleResponse(response, saveToDb);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"Exception while calling CreatePdf API: {ex.Message}");
+        //    }
+        //    finally
+        //    {
+        //        isSaveLoading = false;
+        //        isPreviewLoading = false;
+        //    }
+        //}
+
+        // Helper Methods
+        //private void SetErrorMessageAndResetLoading(string message)
+        //{
+        //    ErrorMessage = message;
+        //    isPreviewLoading = false;
+        //    isSaveLoading = false;
+        //}
+
+        //private MultipartFormDataContent CreateMultipartFormDataContent(ByteArrayContent bgFileContent, string fileName)
+        //{
+        //    var content = new MultipartFormDataContent
+        //    {
+        //        { bgFileContent, "bgFile", fileName }
+        //    };
+
+        //    if (!string.IsNullOrWhiteSpace(templateName))
+        //    {
+        //        content.Add(new StringContent(templateName), "name");
+        //    }
+
+        //    foreach (PropertyInfo property in TicketHandling.GetType().GetProperties())
+        //    {
+        //        var value = property.GetValue(TicketHandling, null)?.ToString();
+        //        if (value != null)
+        //        {
+        //            content.Add(new StringContent(value), property.Name);
+        //        }
+        //    }
+
+        //    var customTextElementsJson = JsonSerializer.Serialize(CustomTexts);
+        //    content.Add(new StringContent(customTextElementsJson, Encoding.UTF8, "application/json"), "customTextElementsJson");
+
+        //    return content;
+        //}
+
+        //private async Task HandleResponse(HttpResponseMessage response, bool saveToDb)
+        //{
+        //    if (response.IsSuccessStatusCode)
+        //    {
+        //        if (saveToDb)
+        //        {
+        //            successModal?.Show();
+        //        }
+        //        else
+        //        {
+        //            var pdfData = await response.Content.ReadAsByteArrayAsync();
+        //            pdfBase64 = Convert.ToBase64String(pdfData);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        Console.WriteLine($"Failed to create PDF. Status code: {response.StatusCode}");
+        //    }
+        //}
+
+        //private void HandleFileUploaded(ByteArrayContent fileContent)
+        //{
+        //    bgFileContent = fileContent;
+        //    ErrorMessage = null;
+        //}
 
         // SaveToDb User Interaction Handlers
         private Task HandleContinueFromCurrent()

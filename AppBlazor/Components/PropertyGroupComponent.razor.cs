@@ -10,14 +10,14 @@ namespace AppBlazor.Components
         [Parameter]
         public TicketHandling? TicketHandling { get; set; }
 
-        public List<PropertyGroup>? PropertyGroups { get; set; } = new List<PropertyGroup>();
+        public List<PropertyGroup>? PropertyGroups { get; set; } = new();
 
         protected override void OnParametersSet()
         {
             PropertyGroups = GetPropertyGroups();
         }
 
-        private List<PropertyGroup> GetPropertyGroups()
+        private static List<PropertyGroup> GetPropertyGroups()
         {
             var groups = new List<PropertyGroup>();
             var includeProperties = typeof(TicketHandling).GetProperties()
@@ -25,7 +25,7 @@ namespace AppBlazor.Components
 
             foreach (var includeProperty in includeProperties)
             {
-                var suffix = includeProperty.Name.Substring("Include".Length);
+                string suffix = includeProperty.Name["Include".Length..];
                 List<PropertyInfo> positionProperties;
                 if (suffix == "EventName" || suffix == "SubEventName")
                 {
@@ -60,7 +60,7 @@ namespace AppBlazor.Components
         {
             if (propertyInfo is null) return;
 
-            if (bool.TryParse(e.Value?.ToString(), out var isChecked))
+            if (bool.TryParse(e.Value?.ToString(), out bool isChecked))
             {
                 propertyInfo.SetValue(TicketHandling, isChecked);
             }
@@ -73,25 +73,16 @@ namespace AppBlazor.Components
             {
                 propertyInfo.SetValue(TicketHandling, null);
             }
-            else
+            else if (propertyInfo.PropertyType == typeof(bool) && bool.TryParse(inputValue, out bool boolValue))
             {
-                if (propertyInfo.PropertyType == typeof(bool))
-                {
-                    if (bool.TryParse(inputValue, out var boolValue))
-                    {
-                        propertyInfo.SetValue(TicketHandling, boolValue);
-                    }
-                }
-                else if (propertyInfo.PropertyType == typeof(float?))
-                {
-                    if (float.TryParse(inputValue, out var floatValue))
-                    {
-                        propertyInfo.SetValue(TicketHandling, floatValue);
-                    }
-                }
+                propertyInfo.SetValue(TicketHandling, boolValue);
+            }
+            else if (propertyInfo.PropertyType == typeof(float?) && float.TryParse(inputValue, out float floatValue))
+            {
+                propertyInfo.SetValue(TicketHandling, floatValue);
             }
         }
 
-        private string GetDisplayName(string propertyName) => Regex.Replace(propertyName, "(\\B[A-Z])", " $1");
+        private static string GetDisplayName(string propertyName) => Regex.Replace(propertyName, "(\\B[A-Z])", " $1");
     }
 }

@@ -5,21 +5,34 @@
 @using System.Net.Http.Headers
 
 <div class="create-template mb-0">
-    <!-- File Upload Section -->
-    <UserFileInputComponent OnFileUploaded="HandleFileUploaded" />
+    <!-- Ticket Type Selection Dropdown -->
+    <div class="mb-3">
+        <label for="ticketTypeSelect" class="form-label">Fördefinerade mallar:</label>
+        <div class="info-text">
+            Kom igång snabbt med en av våra fördefinierade mallar, som du enkelt kan anpassa ytterligare för att passa just dina behov.
+        </div>
+        <select class="form-select" id="ticketTypeSelect" @onchange="OnTicketTypeChanged">
+            <option value="">Ingen vald</option>
+            <option value="Numrerad">Numrerad</option>
+            <option value="Onumrerad">Onumrerad</option>
+            <option value="Presentkort">Presentkort</option>
+        </select>
+    </div>
 
-    <!-- Template Name Input Section -->
+ @*    <!-- Dynamic Form Generation Section -->
+    <PropertyGroupComponent TicketHandling="@ticketHandling" />
+
+    <!-- Custom Text Elements -->
+    <CustomTextComponent CustomTexts="@customTexts" /> *@
+@* 
+    <!-- File Upload Section -->
+    <UserFileInputComponent OnFileUploaded="HandleFileUploaded" /> *@
+
+    @* <!-- Template Name Input Section -->
     <div class="mb-3">
         <label for="templateName" class="form-label">Mallnamn</label>
         <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Namnge din mall" required>
     </div>
-
-
-    <!-- Custom Text Elements -->
-    <CustomTextComponent CustomTexts="@customTexts" />
-
-    <!-- Dynamic Form Generation Section -->
-    <PropertyGroupComponent TicketHandling="@ticketHandling" />
 
     <!-- Action Buttons -->
     <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm" disabled="@isPreviewLoading">
@@ -51,7 +64,11 @@
                 Spara PDF mallen
             </span>
         }
-    </button>
+    </button> *@
+
+    <!-- PDF Creator Component -->
+    <PdfCreatorComponent OnSave="HandlePdfSaved" customTexts="@customTexts" ticketHandling="@ticketHandling" />
+
 
     <!-- PDF Preview Section -->
     <PdfPreviewComponent PdfBase64="@pdfBase64" />

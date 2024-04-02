@@ -1,0 +1,80 @@
+﻿@using AppBlazor.Components
+@using System.Net.Http.Headers
+@using Services
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+
+@* <!-- Dynamic Form Generation Section -->
+<PropertyGroupComponent TicketHandling="@ticketHandling" />
+
+<!-- Custom Text Elements -->
+<CustomTextComponent CustomTexts="@customTexts" /> *@
+
+<!-- Adjusted to dynamically render based on the context -->
+@if (IsEditMode)
+{
+    <CustomTextComponent CustomTexts="@TicketHandling.CustomTextElements" />
+}
+else
+{
+    <CustomTextComponent CustomTexts="@CustomTexts" />
+}
+<PropertyGroupComponent TicketHandling="@TicketHandling" />
+
+
+<!-- Template Name Input Section -->
+<div class="mb-3">
+    <label for="templateName" class="form-label">Mallnamn</label>
+    <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Namnge din mall" required>
+</div>
+
+<!-- File Upload Section -->
+<UserFileInputComponent OnFileUploaded="HandleFileUploaded" />
+
+<!-- Action Buttons -->
+<button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm" disabled="@isPreviewLoading">
+    @if (isPreviewLoading)
+    {
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        <span>
+            Laddar...
+        </span>
+    }
+    else
+    {
+        <span>
+            Förhandsgranska PDF
+        </span>
+    }
+</button>
+@if (IsEditMode)
+{
+    <button @onclick="UpdateTemplate" class="btn btn-success btn-sm">Spara ändringar</button>
+}
+else
+{
+    <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm" disabled="@isSaveLoading">
+        @if (isSaveLoading)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>
+                Sparar...
+            </span>
+        }
+        else
+        {
+            <span>
+                Spara PDF mallen
+            </span>
+        }
+    </button>
+}
+
+<PdfPreviewComponent PdfBase64="@pdfBase64" />
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="validation-message" role="alert">
+        @ErrorMessage
+    </div>
+}

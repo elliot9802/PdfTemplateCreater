@@ -4,22 +4,26 @@
 
 <h3>Redigera mall</h3>
 
-<!-- Template Name Input Section -->
-<div class="mb-3">
-    <label for="templateName" class="form-label">Mallnamn</label>
-    <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Ändra mallens namn" required>
-</div>
-
+@* <!-- Dynamic Form Generation Section -->
+<PropertyGroupComponent TicketHandling="@ticketHandling" />
 
 <!-- Custom Text Elements -->
 <CustomTextComponent CustomTexts="@ticketHandling.CustomTextElements" />
 
-<!-- Dynamic Form Generation Section -->
-<PropertyGroupComponent TicketHandling="@ticketHandling" />
+<!-- Template Name Input Section -->
+ <div class="mb-3">
+    <label for="templateName" class="form-label">Mallnamn</label>
+    <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Ändra mallens namn" required>
+</div>
 
 <!-- Action Buttons -->
-<button @onclick="SaveTemplate" class="btn btn-success btn-sm">Spara ändringar</button>
-
+<button @onclick="SaveTemplate" class="btn btn-success btn-sm">Spara ändringar</button> *@
+<PdfCreatorComponent IsEditMode="true"
+                     CustomTexts="@ticketHandling.CustomTextElements"
+                     TicketHandling="@ticketHandling"
+                     TemplateId="@TemplateId"
+                     TemplateName="@templateName" 
+                     ShowEventInfo="@showEventInfo"/>
 
 <!-- PDF Preview Section -->
 <PdfPreviewComponent PdfBase64="@pdfBase64" />

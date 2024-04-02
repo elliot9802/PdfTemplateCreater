@@ -42,23 +42,35 @@ namespace AppBlazor.Pages
 
         private async Task DeleteTemplate()
         {
-            if (!isPredefined && selectedTemplateId.HasValue)
+            try
             {
-                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/DeleteTicketTemplate/{selectedTemplateId}");
-                var response = await HttpClient.DeleteAsync(requestUri);
-                if (response.IsSuccessStatusCode)
+                if (!isPredefined && selectedTemplateId.HasValue)
                 {
-                    await LoadTemplatesAsync();
-                    pdfBase64 = null;
-                    selectedShowEventInfo = null;
-                    selectedTemplateId = null;
-
-                    SuccessMessage = "Mallen har tagits bort.";
+                    var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/DeleteTicketTemplate/{selectedTemplateId}");
+                    var response = await HttpClient.DeleteAsync(requestUri);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        await LoadTemplatesAsync();
+                        pdfBase64 = null;
+                        selectedShowEventInfo = null;
+                        selectedTemplateId = null;
+                        SuccessMessage = "Mallen har tagits bort.";
+                    }
+                    else
+                    {
+                        ErrorMessage = "Failed to delete the template. Please try again.";
+                    }
                 }
-                else
-                {
-                    ErrorMessage = "Failed to delete the template. Please try again.";
-                }
+            }
+            catch (HttpRequestException httpException)
+            {
+                ErrorMessage = "A network error occurred. Please check your connection and try again.";
+                Console.WriteLine($"HttpRequestException: {httpException.Message}");
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = "An unexpected error occurred. Please try again.";
+                Console.WriteLine($"Exception: {ex.Message}");
             }
         }
 

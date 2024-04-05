@@ -9,6 +9,7 @@ using Syncfusion.Drawing;
 using Syncfusion.Pdf;
 using Syncfusion.Pdf.Barcode;
 using Syncfusion.Pdf.Graphics;
+using System.Data.Common;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -125,8 +126,13 @@ namespace Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in GetPredefinedTicketHandlingAsync: {ErrorMessage}", ex.Message);
-                throw;
+                _logger.LogError(ex, "Error in GetPredefinedTicketHandlingAsync for ShowEventInfo: {ShowEventInfo}. {ErrorMessage}", showEventInfo, ex.Message);
+                throw new InvalidOperationException($"Failed to retrieve predefined TicketHandling for ShowEventInfo: {showEventInfo}.", ex);
+            }
+        }
+        }
+
+        }
             }
         }
 
@@ -154,19 +160,30 @@ namespace Services
                 var query = db.Vy_ShowTickets.AsNoTracking();
 
                 if (showEventInfo.HasValue)
+                {
                     query = query.Where(t => t.showEventInfo == showEventInfo.Value);
+                }
                 else
-                    _logger.LogWarning("GetTicketDataAsync requires either a ticketId or showEventInfo to filter the data.");
-
+                {
+                    const string warningMessage = "GetTicketDataAsync requires either a ticketId or showEventInfo to filter the data.";
+                    _logger.LogWarning(warningMessage);
+                    throw new ArgumentException(warningMessage);
+                }
                 var templateData = await query.FirstOrDefaultAsync();
                 if (templateData == null)
-                    _logger.LogWarning("No matching ticket data found.");
+                    _logger.LogWarning("No matching ticket data found for showEventInfo: {ShowEventInfo}.", showEventInfo);
+
                 return templateData;
+            }
+            catch (DbException dbEx)
+            {
+                _logger.LogError(dbEx, "Database error in GetTicketDataAsync for showEventInfo: {ShowEventInfo}.", showEventInfo);
+                throw new InvalidOperationException($"An error occurred while accessing the database for showEventInfo: {showEventInfo}. See inner exception for details.", dbEx);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in GetTicketDataAsync: {ErrorMessage}", ex.Message);
-                throw;
+                _logger.LogError(ex, "Unexpected error in GetTicketDataAsync for showEventInfo: {ShowEventInfo}.", showEventInfo);
+                throw new InvalidOperationException("An error occurred while accessing the database for showEventInfo: { showEventInfo}. See inner exception for details.", ex);
             }
         }
 
@@ -189,7 +206,7 @@ namespace Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in ReadTemplatesAsync: {ErrorMessage}", ex.Message);
-                throw;
+                throw new InvalidOperationException("An error occurred while reading templates.", ex);
             }
         }
 
@@ -201,7 +218,7 @@ namespace Services
                                   .Where(ticket => ticket.WebbUid == webbUid)
                                   .ToListAsync();
 
-            _logger.LogInformation("{ticketsCount} tickets retrieved for WebbUid: {webbUid}", tickets.Count, webbUid);
+            _logger.LogInformation("{TicketsCount} tickets retrieved for WebbUid: {WebbUid}", tickets.Count, webbUid);
             return tickets;
         }
 
@@ -241,13 +258,18 @@ namespace Services
                 await db.TicketTemplate.AddAsync(newTicketTemplate);
                 await db.SaveChangesAsync();
 
-                _logger.LogInformation("New template created with ShowEventInfo {newShowEventInfo}", newTicketTemplate.ShowEventInfo);
+                _logger.LogInformation("New template created with ShowEventInfo {NewShowEventInfo}", newTicketTemplate.ShowEventInfo);
                 return newTicketTemplate.TicketsHandling;
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.LogError(dbEx, "Database update error in CreateTemplateAsync.");
+                throw new InvalidOperationException("Failed to create new template due to database update error.", dbEx);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in CreateTemplateAsync: {ErrorMessage}", ex.Message);
-                throw;
+                throw new InvalidOperationException("An unexpected error occurred while creating a new template.", ex);
             }
         }
 
@@ -261,7 +283,7 @@ namespace Services
             }
             else
             {
-                _logger.LogWarning("Attempted to update a template with a null name for template ID {id}.", templateDto.TicketTemplateId);
+                _logger.LogWarning("Attempted to update a template with a null name for template ID {Id}.", templateDto.TicketTemplateId);
                 templateToUpdate.Name = "Default Name";
             }
             if (!string.IsNullOrWhiteSpace(templateDto.TicketHandlingJson))
@@ -275,7 +297,7 @@ namespace Services
 
             await db.SaveChangesAsync();
 
-            _logger.LogInformation("Template with ID {id} has been updated.", templateDto.TicketTemplateId);
+            _logger.LogInformation("Template with ID {Id} has been updated.", templateDto.TicketTemplateId);
             return templateDto;
         }
 
@@ -288,20 +310,20 @@ namespace Services
 
                 if (templateToDelete == null)
                 {
-                    _logger.LogWarning("Template with ID {id} not found.", id);
-                    throw new ArgumentException($"Item with id {id} does not exist");
+                    _logger.LogWarning("Template with ID {Id} not found.", id);
+                    throw new KeyNotFoundException($"Template with id {id} not found.");
                 }
 
                 db.TicketTemplate.Remove(templateToDelete);
                 await db.SaveChangesAsync();
 
-                _logger.LogInformation("Template with ID {id} has been deleted.", id);
+                _logger.LogInformation("Template with ID {Id} has been deleted.", id);
                 return templateToDelete;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in DeleteTemplateAsync: {ErrorMessage}", ex.Message);
-                throw;
+                throw new InvalidOperationException($"An error occurred while attempting to delete template with ID {id}.", ex);
             }
         }
 
@@ -325,6 +347,8 @@ namespace Services
 
         public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, string outputPath)
         {
+            try
+            {
             var ticketsData = await GetTicketsDataByWebbUidAsync(webbUid);
             if (!ticketsData.Any())
             {
@@ -357,6 +381,12 @@ namespace Services
 
             return await File.ReadAllBytesAsync(outputPath);
         }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An exception occurred while creating a combined PDF for WebbUid: {WebbUid} at outputPath: {OutputPath}.", webbUid, outputPath);
+                throw new InvalidOperationException($"Failed to create combined PDF for WebbUid: {webbUid}. See inner exception for details.", ex);
+            }
+        }
 
         public async Task CreatePdfAsync(string outputPath, TicketHandling ticketHandling, string? backgroundImagePath)
         {
@@ -376,12 +406,12 @@ namespace Services
                 await DrawPageContent(page, backgroundImagePath, ticketData, ticketHandling, regularFont, boldFont, customFont);
 
                 await SaveDocumentAsync(document, outputPath);
-                _logger.LogInformation("PDF created successfully at {outputPath}", outputPath);
+                _logger.LogInformation("PDF created successfully at {OutputPath}", outputPath);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in CreatePdfAsync: {ErrorMessage}", ex.Message);
-                throw;
+                throw new InvalidOperationException($"An unexpected error occurred while creating PDF at {outputPath}.", ex);
             }
         }
 
@@ -604,12 +634,17 @@ namespace Services
             {
                 await using FileStream stream = new(outputPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 document.Save(stream);
-                _logger.LogInformation("PDF Ticket Creation succeeded and saved to {outputPath}", outputPath);
+                _logger.LogInformation("PDF Ticket Creation succeeded and saved to {OutputPath}", outputPath);
+            }
+            catch (IOException ioEx)
+            {
+                _logger.LogError(ioEx, "PDF Ticket creation IO error: {ErrorMessage}", ioEx.Message);
+                throw new InvalidOperationException($"An IO error occurred while saving the PDF to {outputPath}.", ioEx);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "PDF Ticket creation failed: {ErrorMessage}", ex.Message);
-                throw;
+                throw new InvalidOperationException("An unexpected error occurred while saving the PDF document.", ex);
             }
         }
 

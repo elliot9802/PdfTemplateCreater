@@ -27,6 +27,19 @@ else
         </select>
     </div>
 
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success mt-2" role="alert">
+            @SuccessMessage
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger mt-2" role="alert">
+            @ErrorMessage
+        </div>
+    }
+
     <div class="mb-3">
     <button class="btn btn-primary" @onclick="PreviewTemplate" disabled="@(!selectedShowEventInfo.HasValue || isLoading)">
         @if (isLoading)
@@ -53,16 +66,4 @@ else
 
     <!-- PDF Preview Section -->
     <PdfPreviewComponent PdfBase64="@pdfBase64" />
-
-    @if (!string.IsNullOrEmpty(SuccessMessage)) {
-        <div class="alert alert-success mt-2" role="alert">
-            @SuccessMessage
-        </div>
-    }
-    else if (!string.IsNullOrEmpty(ErrorMessage))
-    {
-        <div class="alert alert-danger mt-2" role="alert">
-            @ErrorMessage
-        </div>
-    }
 }

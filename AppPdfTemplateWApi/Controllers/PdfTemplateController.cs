@@ -31,7 +31,7 @@ namespace AppPdfTemplateWApi.Controllers
                                                                 [FromForm] string? name,
                                                                 bool saveToDb = false)
         {
-            _logger.LogInformation("Processing template creation, Name: {name}, Save to DB: {saveToDb}", name, saveToDb);
+            _logger.LogInformation("Processing template creation, Name: {Name}, Save to DB: {SaveToDb}", name, saveToDb);
 
             if (saveToDb && string.IsNullOrWhiteSpace(name))
             {
@@ -39,12 +39,17 @@ namespace AppPdfTemplateWApi.Controllers
                 return BadRequest("Template name is required when saving to the database.");
             }
 
+            if (bgFile == null || bgFile.Length == 0)
+            {
+                _logger.LogWarning("Background file missing or empty.");
+                return BadRequest("Background file missing or empty.");
+            }
+
             if (!TryDeserializeCustomTextElements(customTextElementsJson, out var customTextElements))
             {
                 _logger.LogWarning("Invalid format for custom text elements.");
                 return BadRequest("Invalid format for custom text elements.");
             }
-
             ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
 
             if (bgFile == null || bgFile.Length == 0)
@@ -74,14 +79,10 @@ namespace AppPdfTemplateWApi.Controllers
                 await _pdfService.DeleteTemplateAsync(Guid.Parse(id));
                 return Ok($"Template with ID {id} has been deleted successfully.");
             }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.LogWarning(ex, "Template with ID {id} not found.", id);
-                return NotFound(ex.Message);
-            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occured while deleting the template.");
+                if (ex is ArgumentException) return NotFound(ex.Message);
                 return StatusCode(500, "An internal server error occured.");
             }
         }
@@ -132,7 +133,7 @@ namespace AppPdfTemplateWApi.Controllers
             }
             catch (KeyNotFoundException ex)
             {
-                _logger.LogWarning(ex, "Template with {id} not found.", ticketTemplateId);
+                _logger.LogWarning(ex, "Template with {Id} not found.", ticketTemplateId);
                 return NotFound(ex.Message);
             }
             catch (Exception ex)
@@ -178,20 +179,17 @@ namespace AppPdfTemplateWApi.Controllers
             try
             {
                 byte[] pdfBytes = await _pdfService.CreateCombinedPdfAsync(webbUid, outputPath);
-
-                System.IO.File.Delete(outputPath);
-
                 return File(pdfBytes, "application/pdf", $"Tickets_{webbUid}.pdf");
-            }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.LogError(ex, "Failed to find tickets: {ErrorMessage}", ex.Message);
-                return NotFound(ex.Message);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating combined PDF: {ErrorMessage}", ex.Message);
-                return StatusCode(500, "Internal Server Error");
+                if (ex is ArgumentException) return NotFound(ex.Message);
+                return StatusCode(500, "An internal server error occured.");
+            }
+            finally
+            {
+                await CleanUpFiles(outputPath);
             }
         }
 
@@ -218,7 +216,7 @@ namespace AppPdfTemplateWApi.Controllers
             {
                 try
                 {
-                    _logger.LogInformation("Attempting to delete file: {filePath}", filePath);
+                    _logger.LogInformation("Attempting to delete file: {FilePath}", filePath);
                     await _fileService.DeleteAsync(filePath);
                 }
                 catch (Exception ex)

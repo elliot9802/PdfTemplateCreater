@@ -3,6 +3,8 @@
     background-color: #f8f9fa;
 }
 
-    .customtext-container .btn-primary {
+    .customtext-container .row {
+        margin-top: 1.5rem;
+        border: 0.2em solid #dee2e6;
+        padding: 1em 0 1em 0;
     }
-

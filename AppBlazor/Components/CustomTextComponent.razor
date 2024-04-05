@@ -1,4 +1,4 @@
-﻿<div class="customtext-container mt-2">
+﻿<div class="customtext-container">
     <h2>Lägg till fritext</h2>
     <!-- Action Buttons -->
     <div class="form-group">
@@ -18,7 +18,7 @@
     {
         @if (tempText.IsInEditMode)
         {
-            <div>
+            <div id="@($"tempText-{tempText.CustomTextId}")">
                 <div class="row">
                     <div class="col-sm-6 col-md-4">
                         <div class="form-group">

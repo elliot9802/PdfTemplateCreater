@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Models;
 using Newtonsoft.Json;
 using Services;
@@ -17,7 +18,6 @@ namespace AppBlazor.Components
         [Parameter] public string? TemplateName { get; set; }
         [Parameter] public int? ShowEventInfo { get; set; }
 
-
         // Dependency Injection Properties
         private ConfigService? _configService;
 
@@ -27,13 +27,42 @@ namespace AppBlazor.Components
             get => _configService ?? throw new InvalidOperationException("ConfigService is not configured.");
             set => _configService = value;
         }
+
+        [Inject]
+        private IJSRuntime? JSRuntime { get; set; }
+
         private string pdfBase64 = string.Empty;
-        private bool isProcessing;
         private bool isPreviewLoading;
         private bool isSaveLoading;
-        private string ErrorMessage = string.Empty;
+        private string? ErrorMessage = string.Empty;
+        public string? SuccessMessage { get; set; }
+
+        private readonly Dictionary<string, string> errorElementMap = new()
+        {
+    { "Vänligen välj en bakgrundsbild innan du fortsätter", "backgroundImageUpload" },
+    { "Vänligen välj ett namn för din mall innan du fortsätter", "templateName" }
+};
+
+        private string currentFocusElementId = string.Empty;
+        private bool shouldFocusOnError;
+
         private string templateName = string.Empty;
+
         private ByteArrayContent? bgFileContent;
+
+        private enum Tab
+        {
+            Info,
+            CustomText,
+            PropertyGroup
+        }
+
+        private Tab selectedTab = Tab.Info;
+
+        private void SelectTab(Tab tab)
+        {
+            selectedTab = tab;
+        }
 
         //private async Task HandleFileUpload(InputFileChangeEventArgs e)
         //{
@@ -113,6 +142,29 @@ namespace AppBlazor.Components
             ErrorMessage = message;
             isPreviewLoading = false;
             isSaveLoading = false;
+            if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                SelectTab(Tab.Info);
+                currentFocusElementId = errorElementMap.FirstOrDefault(x => ErrorMessage.Contains(x.Key)).Value ?? string.Empty;
+                shouldFocusOnError = true;
+                StateHasChanged();
+            }
+        }
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (shouldFocusOnError && JSRuntime != null && !string.IsNullOrEmpty(currentFocusElementId))
+            {
+                shouldFocusOnError = false;
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("focusOnElementById", currentFocusElementId);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error invoking JS for focusing on file input: {ex.Message}");
+                }
+            }
         }
 
         private async Task CreatePdf(bool saveToDb)
@@ -120,6 +172,7 @@ namespace AppBlazor.Components
             isSaveLoading = saveToDb;
             isPreviewLoading = !saveToDb;
             ErrorMessage = string.Empty;
+            SuccessMessage = string.Empty;
 
             if (bgFileContent == null)
             {
@@ -161,6 +214,17 @@ namespace AppBlazor.Components
 
         private async Task UpdateTemplate()
         {
+            isSaveLoading = true;
+            ErrorMessage = string.Empty;
+            SuccessMessage = string.Empty;
+
+            if (!TemplateId.HasValue || !ShowEventInfo.HasValue)
+            {
+                Console.WriteLine("Template ID and/or Show Event Info are null.");
+                isSaveLoading = false;
+                return;
+            }
+
             var templateDTO = new TicketTemplateDto
             {
                 TicketTemplateId = TemplateId.Value,
@@ -178,7 +242,7 @@ namespace AppBlazor.Components
                 var response = await HttpClient.PutAsync(requestUri, content);
                 if (response.IsSuccessStatusCode)
                 {
-                    ErrorMessage = "Template updated successfully!";
+                    SuccessMessage = "Template successfully updated!";
                     await OnSave.InvokeAsync(true);
                 }
                 else
@@ -197,6 +261,10 @@ namespace AppBlazor.Components
             {
                 ErrorMessage = "An unexpected error occurred. Please try again.";
                 Console.WriteLine($"Exception: {ex.Message}");
+            }
+            finally
+            {
+                isSaveLoading = false;
             }
         }
     }

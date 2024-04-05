@@ -1,0 +1,41 @@
+﻿<div class="tab-view">
+    <ul class="nav nav-tabs">
+        @foreach (var item in Items)
+        {
+            <li class="nav-item" @onclick="() => SetActiveItem(item)">
+                <a class="nav-link @GetItemCssClass(item)" href="javascript:void(0)">@item.Header</a>
+            </li>
+        }
+    </ul>
+    <div class="tab-content">
+        @ActiveItem?.Content
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private TabItemComponent.TabItemModel? ActiveItem { get; set; }
+
+    private List<TabItemComponent.TabItemModel> Items { get; set; } = new List<TabItemComponent.TabItemModel>();
+
+    public void AddItem(TabItemComponent.TabItemModel item)
+    {
+        Items.Add(item);
+        if (ActiveItem == null)
+        {
+            ActiveItem = item;
+        }
+    }
+
+    private void SetActiveItem(TabItemComponent.TabItemModel item)
+    {
+        ActiveItem = item;
+    }
+
+    private string GetItemCssClass(TabItemComponent.TabItemModel item)
+    {
+        return item == ActiveItem ? "active" : "";
+    }
+}

@@ -1,0 +1,25 @@
+﻿@code {
+    [CascadingParameter]
+    public TabViewComponent? TabView { get; set; }
+
+    [Parameter]
+    public string Header { get; set; } = string.Empty;
+
+    [Parameter]
+    public RenderFragment? Content { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (TabView == null)
+        {
+            throw new InvalidOperationException($"{nameof(TabItemComponent)} requires a cascading parameter of type {nameof(TabView)}.");
+        }
+        TabView.AddItem(new TabItemModel { Header = this.Header, Content = this.Content });
+    }
+
+    public class TabItemModel
+    {
+        public string Header { get; set; } = string.Empty;
+        public RenderFragment? Content { get; set; }
+    }
+}

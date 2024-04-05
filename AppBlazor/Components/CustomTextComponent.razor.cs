@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using Models;
 
 namespace AppBlazor.Components
@@ -8,6 +9,9 @@ namespace AppBlazor.Components
         // Parameters and Properties
         [Parameter]
         public List<CustomTextElement> CustomTexts { get; set; } = new();
+
+        [Inject]
+        private IJSRuntime? JSRuntime { get; set; }
 
         public List<CustomTextElement> TempCustomTexts { get; set; } = new();
 
@@ -20,6 +24,9 @@ namespace AppBlazor.Components
         new("Rad", 580, 185, 9, "#7a7979"),
         new("Ingång", 788, 185, 9, "#7a7979")
     };
+
+        private bool RequiresScrollAndFocus { get; set; }
+        private string? ElementToFocus { get; set; }
 
         // UI Event Handlers
         private void AddOrSaveText(CustomTextElement customText)
@@ -110,12 +117,14 @@ namespace AppBlazor.Components
                     Color = customText.Color,
                     IsInEditMode = true
                 };
-                TempCustomTexts.Add(existingTemp);
+                TempCustomTexts.Insert(0, existingTemp);
             }
             else
             {
                 existingTemp.IsInEditMode = true;
             }
+            RequiresScrollAndFocus = true;
+            ElementToFocus = $"#tempText-{existingTemp.CustomTextId}";
         }
 
         // Utility Methods
@@ -124,13 +133,29 @@ namespace AppBlazor.Components
         private CustomTextElement? NextUnaddedPredefined() =>
             predefinedTexts.Find(predef => CustomTexts.TrueForAll(ct => ct.Text != predef.Text));
 
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (JSRuntime != null && RequiresScrollAndFocus)
+            {
+                RequiresScrollAndFocus = false;
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("scrollToElementAndFocus", ElementToFocus);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error invoking JS for scroll focus: {ex.Message}");
+                }
+            }
+        }
+
         private static CustomTextElement? PredefinedToTempText(CustomTextElement? source)
         {
             if (source == null) return null;
             return new(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
         }
 
-        private void UpdateTextElement(CustomTextElement target, CustomTextElement source) =>
+        private static void UpdateTextElement(CustomTextElement target, CustomTextElement source) =>
             (target.Text, target.PositionX, target.PositionY, target.FontSize, target.Color) =
             (source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color);
     }

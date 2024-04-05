@@ -4,77 +4,118 @@
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
 
-@* <!-- Dynamic Form Generation Section -->
-<PropertyGroupComponent TicketHandling="@ticketHandling" />
+<div class="overhead">
+    <div class="tabs">
+        <button class="btn @(selectedTab == Tab.Info ? "tab-active" : "")" @onclick="() => SelectTab(Tab.Info)">Info</button>
+        <button class="btn @(selectedTab == Tab.CustomText ? "tab-active" : "")" @onclick="() => SelectTab(Tab.CustomText)">Custom Text</button>
+        <button class="btn @(selectedTab == Tab.PropertyGroup ? "tab-active" : "")" @onclick="() => SelectTab(Tab.PropertyGroup)">Property Group</button>
+    </div>
 
-<!-- Custom Text Elements -->
-<CustomTextComponent CustomTexts="@customTexts" /> *@
-
-<!-- Adjusted to dynamically render based on the context -->
-@if (IsEditMode)
-{
-    <CustomTextComponent CustomTexts="@TicketHandling.CustomTextElements" />
-}
-else
-{
-    <CustomTextComponent CustomTexts="@CustomTexts" />
-}
-<PropertyGroupComponent TicketHandling="@TicketHandling" />
-
-
-<!-- Template Name Input Section -->
-<div class="mb-3">
-    <label for="templateName" class="form-label">Mallnamn</label>
-    <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Namnge din mall" required>
-</div>
-
-<!-- File Upload Section -->
-<UserFileInputComponent OnFileUploaded="HandleFileUploaded" />
-
-<!-- Action Buttons -->
-<button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm" disabled="@isPreviewLoading">
-    @if (isPreviewLoading)
+    @if (selectedTab == Tab.Info)
     {
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-        <span>
-            Laddar...
-        </span>
+        <div class="mallinfo-container">
+            <h3>Mall Info</h3>
+            <!-- Template Name Input Section -->
+            <div class="mb-3">
+                <label for="templateName" class="form-label">Mallnamn</label>
+                <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Namnge din mall" required>
+            </div>
+
+            <!-- File Upload Section -->
+            <ErrorBoundary>
+                <UserFileInputComponent OnFileUploaded="HandleFileUploaded" />
+            </ErrorBoundary>
+        </div>
     }
-    else
+    else if (selectedTab == Tab.CustomText)
     {
-        <span>
-            Förhandsgranska PDF
-        </span>
+        @if (IsEditMode)
+        {
+            <ErrorBoundary>
+                <CustomTextComponent CustomTexts="@TicketHandling.CustomTextElements" />
+            </ErrorBoundary>
+        }
+        else
+        {
+            <ErrorBoundary>
+                <CustomTextComponent CustomTexts="@CustomTexts" />
+            </ErrorBoundary>
+        }
     }
-</button>
-@if (IsEditMode)
-{
-    <button @onclick="UpdateTemplate" class="btn btn-success btn-sm">Spara ändringar</button>
-}
-else
-{
-    <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm" disabled="@isSaveLoading">
-        @if (isSaveLoading)
+    else if (selectedTab == Tab.PropertyGroup)
+    {
+        <ErrorBoundary>
+            <PropertyGroupComponent TicketHandling="@TicketHandling" />
+        </ErrorBoundary>
+    }
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success mt-2" role="alert">
+            @SuccessMessage
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger mt-2" role="alert">
+            @ErrorMessage
+        </div>
+    }
+
+    <!-- Action Buttons -->
+    <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm spcl-btn" disabled="@isPreviewLoading">
+        @if (isPreviewLoading)
         {
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
             <span>
-                Sparar...
+                Laddar...
             </span>
         }
         else
         {
             <span>
-                Spara PDF mallen
+                Förhandsgranska PDF
             </span>
         }
     </button>
-}
+    @if (IsEditMode)
+    {
+        <button @onclick="UpdateTemplate" class="btn btn-success btn-sm spcl-btn" disabled="@isSaveLoading">
+            @if (isSaveLoading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>
+                    Sparar...
+                </span>
+            }
+            else
+            {
+                <span>
+                    Spara ändringar
+                </span>
+            }
+        </button>
+    }
+    else
+    {
+        <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm spcl-btn" disabled="@isSaveLoading">
+            @if (isSaveLoading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span>
+                    Sparar...
+                </span>
+            }
+            else
+            {
+                <span>
+                    Spara PDF mallen
+                </span>
+            }
+        </button>
+    }
 
-<PdfPreviewComponent PdfBase64="@pdfBase64" />
-
-@if (!string.IsNullOrEmpty(ErrorMessage))
-{
-    <div class="validation-message" role="alert">
-        @ErrorMessage
-    </div>
-}
+    <ErrorBoundary>
+        <PdfPreviewComponent PdfBase64="@pdfBase64" />
+    </ErrorBoundary>
+</div>

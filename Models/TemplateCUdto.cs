@@ -7,6 +7,7 @@
         public TicketHandling TicketsHandling { get; set; } = new TicketHandling();
         public string Name { get; set; } = string.Empty;
         public Guid TicketTemplateId { get; set; }
+        public int? FileStorageID { get; set; }
 
         public TemplateCUdto()
         { }
@@ -20,6 +21,7 @@
             TicketTemplateId = org.TicketTemplateId;
             TicketsHandling = org.TicketsHandling ?? new TicketHandling();
             ShowEventInfo = org.ShowEventInfo;
+            FileStorageID = org.FileStorageID;
         }
     }
 }

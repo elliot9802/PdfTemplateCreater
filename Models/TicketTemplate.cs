@@ -6,6 +6,7 @@
         public virtual TicketHandling TicketsHandling { get; set; } = new TicketHandling();
         public virtual Guid TicketTemplateId { get; set; }
         public virtual string Name { get; set; } = string.Empty;
+        public virtual int? FileStorageID { get; set; }
 
         public TicketTemplate()
         { }

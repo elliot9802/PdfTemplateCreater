@@ -8,19 +8,29 @@ namespace DbContext
     {
         public DbSet<TicketTemplateDbM> TicketTemplate { get; set; }
         public DbSet<TicketsDataView> Vy_ShowTickets { get; set; }
+        public DbSet<FileStorage> FileStorage { get; set; }
+        public DbSet<FileDescription> FileDescription { get; set; }
 
         public TicketTemplateDbContext()
         { }
 
         public TicketTemplateDbContext(DbContextOptions<TicketTemplateDbContext> options) : base(options)
-        {
-        }
+        { }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<TicketTemplateDbM>()
-                .Property(b => b.TicketsHandlingJson)
-                .HasColumnType("nvarchar(max)");
+            modelBuilder.Entity<TicketTemplateDbM>(entity =>
+            {
+                entity.HasKey(e => e.TicketTemplateId);
+
+                entity.HasOne<FileStorage>()
+                    .WithMany()
+                    .HasForeignKey(e => e.FileStorageID)
+                    .OnDelete(DeleteBehavior.ClientSetNull);
+
+                entity.Property(b => b.TicketsHandlingJson)
+                          .HasColumnType("nvarchar(max)");
+            });
 
             modelBuilder.Entity<TicketsDataView>()
                 .ToView("Vy_ShowTickets", "dbo")
@@ -49,8 +59,7 @@ namespace DbContext
             { }
 
             public SqlServerDbContext(DbContextOptions<TicketTemplateDbContext> options) : base(options)
-            {
-            }
+            { }
 
             protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
             {

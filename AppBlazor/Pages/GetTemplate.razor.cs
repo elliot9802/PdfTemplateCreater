@@ -20,8 +20,6 @@ namespace AppBlazor.Pages
         // Component State Properties
         private List<TicketTemplateDto>? templates;
 
-        private ByteArrayContent? bgFileContent;
-
         private bool isLoading;
 
         private bool isPredefined = true;
@@ -33,7 +31,7 @@ namespace AppBlazor.Pages
         private Guid? selectedTemplateId;
 
         public string? SuccessMessage { get; set; }
-        public string? ErrorMessage { get; set; }
+        public string? ErrorMessage { get; set; } = string.Empty;
 
         protected override async Task OnInitializedAsync()
         {
@@ -82,12 +80,6 @@ namespace AppBlazor.Pages
             }
         }
 
-        private void HandleFileUploaded(ByteArrayContent fileContent)
-        {
-            bgFileContent = fileContent;
-            ErrorMessage = null;
-        }
-
         private async Task LoadTemplatesAsync()
         {
             var requestUri = ConfigService!.GetApiUrl("/api/PdfTemplate/GetTicketTemplate");
@@ -114,6 +106,7 @@ namespace AppBlazor.Pages
                 isPredefined = showEventInfo <= 3;
                 pdfBase64 = null;
                 ErrorMessage = string.Empty;
+                SuccessMessage = string.Empty;
             }
             else
             {
@@ -126,23 +119,10 @@ namespace AppBlazor.Pages
         {
             isLoading = true;
             ErrorMessage = string.Empty;
+            SuccessMessage = string.Empty;
+
             if (selectedShowEventInfo.HasValue && selectedShowEventInfo > 0)
             {
-                if (bgFileContent == null)
-                {
-                    ErrorMessage = "Vänligen välj en bakgrundsbild innan du fortsätter";
-                    isLoading = false;
-                    return;
-                }
-
-                var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
-                if (string.IsNullOrEmpty(fileName))
-                {
-                    ErrorMessage = "The file name was not provided.";
-                    isLoading = false;
-                    return;
-                }
-
                 string ticketId = selectedShowEventInfo switch
                 {
                     1 => "16838",
@@ -151,15 +131,10 @@ namespace AppBlazor.Pages
                     _ => "16835",
                 };
                 var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/GetPredefinedTemplate/?showEventInfo={selectedShowEventInfo}&ticketId={ticketId}");
-
-                var content = new MultipartFormDataContent
-                {
-                    { bgFileContent, "bgFile", fileName }
-                };
-
+                var emptyContent = new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
                 try
                 {
-                    var response = await HttpClient.PostAsync(requestUri, content);
+                    var response = await HttpClient.PostAsync(requestUri, emptyContent);
                     if (response.IsSuccessStatusCode)
                     {
                         var pdfData = await response.Content.ReadAsByteArrayAsync();

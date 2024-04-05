@@ -2,8 +2,6 @@
 using Models;
 using Newtonsoft.Json;
 using Services;
-using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace AppBlazor.Pages
 {
@@ -72,39 +70,5 @@ namespace AppBlazor.Pages
                 ErrorMessage = $"An error occurred: {ex.Message}";
             }
         }
-
-        //private async Task SaveTemplate()
-        //{
-        //    var templateDTO = new TicketTemplateDto
-        //    {
-        //        TicketTemplateId = TemplateId,
-        //        TicketHandlingJson = JsonConvert.SerializeObject(ticketHandling),
-        //        ShowEventInfo = showEventInfo,
-        //        Name = templateName
-        //    };
-
-        //    var jsonContent = JsonConvert.SerializeObject(templateDTO);
-        //    var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-        //    try
-        //    {
-        //        var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/UpdateTemplate/{TemplateId}");
-        //        var response = await HttpClient.PutAsync(requestUri, content);
-        //        if (response.IsSuccessStatusCode)
-        //        {
-        //            ErrorMessage = "Template updated successfully!";
-        //        }
-        //        else
-        //        {
-        //            var statusCode = response.StatusCode;
-        //            var errorContent = await response.Content.ReadAsStringAsync();
-        //            ErrorMessage = $"Failed to update the template: {statusCode} - {(string.IsNullOrEmpty(errorContent) ? "No additional error information provided." : errorContent)}";
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        ErrorMessage = $"An unexpected error occurred: {ex.Message}";
-        //    }
-        //}
     }
 }

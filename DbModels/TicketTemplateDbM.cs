@@ -29,9 +29,12 @@ namespace DbModels
         [Key]
         public override Guid TicketTemplateId { get; set; }
 
+        [Required]
+        public override int? FileStorageID { get; set; }
+
         #region constructors
 
-        public TicketTemplateDbM() : base()
+        public TicketTemplateDbM()
         {
             TicketsHandlingJson = "{}";
         }
@@ -42,6 +45,7 @@ namespace DbModels
             TicketsHandlingJson = JsonConvert.SerializeObject(org.TicketsHandling ?? new TicketHandling());
             ShowEventInfo = org.ShowEventInfo;
             Name = org.Name;
+            FileStorageID = org.FileStorageID;
         }
 
         public void UpdateFromDTO(TemplateCUdto org)
@@ -56,6 +60,7 @@ namespace DbModels
             TicketsHandling = ticketHandlingFromDto ?? new TicketHandling();
 
             ShowEventInfo = org.ShowEventInfo;
+            FileStorageID = org.FileStorageID;
         }
 
         #endregion constructors

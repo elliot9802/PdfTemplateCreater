@@ -6,7 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient();
 builder.Services.AddLogging();
 builder.Services.AddControllers();
-builder.Services.AddTransient<IPdfTemplateService, PdfTemplateService>();
+builder.Services.AddScoped<IPdfTemplateService, PdfTemplateService>();
 builder.Services.AddTransient<IFileService, FileService>();
 
 builder.Services.AddEndpointsApiExplorer();

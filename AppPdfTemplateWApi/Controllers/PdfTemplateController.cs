@@ -1,4 +1,3 @@
-using DbModels;
 using Microsoft.AspNetCore.Mvc;
 using Models;
 using Newtonsoft.Json;
@@ -26,10 +25,10 @@ namespace AppPdfTemplateWApi.Controllers
         //POST: api/PdfTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}
         [HttpPost]
         public async Task<IActionResult> CreateTemplate([FromForm] TicketHandling ticketHandling,
-                                                                IFormFile bgFile,
-                                                                [FromForm] string? customTextElementsJson,
-                                                                [FromForm] string? name,
-                                                                bool saveToDb = false)
+                                                        IFormFile bgFile,
+                                                        [FromForm] string? customTextElementsJson,
+                                                        [FromForm] string? name,
+                                                        bool saveToDb = false)
         {
             _logger.LogInformation("Processing template creation, Name: {Name}, Save to DB: {SaveToDb}", name, saveToDb);
 
@@ -52,22 +51,59 @@ namespace AppPdfTemplateWApi.Controllers
             }
             ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
 
-            if (bgFile == null || bgFile.Length == 0)
-            {
-                _logger.LogWarning("Background file missing or empty.");
-                return BadRequest("Background file missing or empty.");
-            }
+            string outputPath = _pdfService.GetTemporaryPdfFilePath();
+            List<string> filesToCleanUp = new() { outputPath };
+            byte[] pdfBytes = Array.Empty<byte>();
+            int bgFileId = 0;
 
             try
             {
-                var templateProcessResult = await ProcessTemplateCreation(ticketHandling, bgFile, name ?? "Template Name", saveToDb);
-                return saveToDb ? Ok(templateProcessResult) : File(templateProcessResult, "application/pdf", $"{Guid.NewGuid()}.pdf");
+                string bgFilePath;
+                if (saveToDb)
+                {
+                    byte[] bgFileData;
+                    await using (var ms = new MemoryStream())
+                    {
+                        await bgFile.CopyToAsync(ms);
+                        bgFileData = ms.ToArray();
+                    }
+                    bgFileId = await _pdfService.SaveFileToDatabaseAsync(bgFileData, "Background Image for " + name, bgFile.FileName);
+                    bgFilePath = await _pdfService.GetFilePathAsync(bgFileId);
+                }
+                else
+                {
+                    bgFilePath = Path.GetRandomFileName();
+                    await using var stream = new FileStream(bgFilePath, FileMode.Create);
+                    await bgFile.CopyToAsync(stream);
+                    filesToCleanUp.Add(bgFilePath);
+                }
+
+                await _pdfService.CreatePdfAsync(outputPath, ticketHandling, bgFilePath);
+
+                if (saveToDb)
+                {
+                    TemplateCUdto templateDetails = _pdfService.MapTicketHandlingToTemplateCUdto(ticketHandling);
+                    templateDetails.Name = name!;
+                    templateDetails.FileStorageID = bgFileId;
+                    await _pdfService.CreateTemplateAsync(templateDetails);
+                }
+                else
+                {
+                    pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
+                    _logger.LogInformation("PDF created successfully. FileName: {OutputPath}", Path.GetFileName(outputPath));
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "An error occured while processing the template creation");
-                return StatusCode(500, "An internal server error occured.");
+                _logger.LogError(ex, "An error occurred while processing the template creation");
+                return StatusCode(500, "An internal server error occurred.");
             }
+            finally
+            {
+                await CleanUpFiles(filesToCleanUp.ToArray());
+            }
+
+            return saveToDb ? Ok("Template created and saved to database.") : File(pdfBytes, "application/pdf", $"{Guid.NewGuid()}.pdf");
         }
 
         //DELETE: api/PdfTemplate/DeleteTicketTemplate/{id}
@@ -89,18 +125,41 @@ namespace AppPdfTemplateWApi.Controllers
 
         //POST: api/PdfTemplate/GetPredefinedTemplate?showEventInfo={showEventInfo}&ticketId={ticketId}
         [HttpPost]
-        public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo, IFormFile bgFile)
+        public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo)
         {
-            if (bgFile == null || bgFile.Length == 0)
-            {
-                _logger.LogWarning("Background file missing or empty.");
-                return BadRequest("Background file missing or empty.");
-            }
+            string outputPath = _pdfService.GetTemporaryPdfFilePath();
+            List<string> filesToCleanUp = new() { outputPath };
 
             try
             {
-                var templateProcessResult = await ProcessPredefinedTemplate(showEventInfo, bgFile);
-                return File(templateProcessResult, "application/pdf", $"{Guid.NewGuid()}.pdf");
+                var ticketHandlingData = await _pdfService.GetPredefinedTicketHandlingAsync(showEventInfo);
+                if (ticketHandlingData == null)
+                {
+                    _logger.LogWarning("No predefined TicketHandling found for ShowEventInfo: {ShowEventInfo}", showEventInfo);
+                    throw new KeyNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
+                }
+
+                var ticketTemplate = await _pdfService.GetTicketTemplateByShowEventInfoAsync(showEventInfo);
+                if (ticketTemplate == null)
+                {
+                    _logger.LogWarning("No Template found with ShowEventInfo: {ShowEventInfo}", showEventInfo);
+                    throw new KeyNotFoundException($"Template with ShowEventInfo {showEventInfo} not found.");
+                }
+
+                await using var stream = new MemoryStream(await _pdfService.GetFileDataAsync(ticketTemplate.FileStorageID));
+                string tempBgFilePath = Path.GetRandomFileName();
+                await using (var fileStream = new FileStream(tempBgFilePath, FileMode.Create))
+                {
+                    await stream.CopyToAsync(fileStream);
+                }
+                filesToCleanUp.Add(tempBgFilePath);
+
+                await _pdfService.CreatePdfAsync(outputPath, ticketHandlingData, tempBgFilePath);
+
+                var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
+                _logger.LogInformation("PDF created successfully. FileName: {OutputPath}", Path.GetFileName(outputPath));
+
+                return File(pdfBytes, "application/pdf", $"{Guid.NewGuid()}.pdf");
             }
             catch (KeyNotFoundException ex)
             {
@@ -111,6 +170,10 @@ namespace AppPdfTemplateWApi.Controllers
             {
                 _logger.LogError(ex, "An error occured while getting the predefined template.");
                 return StatusCode(500, "An internal server error occured.");
+            }
+            finally
+            {
+                await CleanUpFiles(filesToCleanUp.ToArray());
             }
         }
 
@@ -221,70 +284,9 @@ namespace AppPdfTemplateWApi.Controllers
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to delete file: {filePath}. Continuing cleanup", filePath);
+                    _logger.LogError(ex, "Failed to delete file: {FilePath}. Continuing cleanup", filePath);
                 }
             }
-        }
-
-        private async Task<byte[]> ProcessPredefinedTemplate(int showEventInfo, IFormFile bgFile)
-        {
-            string tempBgFilePath = Path.GetRandomFileName();
-            await using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
-            {
-                await bgFile.CopyToAsync(stream);
-            }
-
-            var ticketHandlingData = await _pdfService.GetPredefinedTicketHandlingAsync(showEventInfo);
-            if (ticketHandlingData == null)
-            {
-                _logger.LogWarning("No predefined TicketHandling found for ShowEventInfo: {showEventInfo}", showEventInfo);
-                await CleanUpFiles(tempBgFilePath);
-                throw new KeyNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
-            }
-
-            //var ticketData = await _pdfService.GetTicketDataAsync(ticketId, showEventInfo);
-            //if (ticketData == null)
-            //{
-            //    _logger.LogWarning("No template data found for ticket creation");
-            //    await CleanUpFiles(tempBgFilePath);
-            //    throw new KeyNotFoundException($"{showEventInfo} Not Found");
-            //}
-            var outputPath = _pdfService.GetTemporaryPdfFilePath();
-            await _pdfService.CreatePdfAsync(outputPath, ticketHandlingData, tempBgFilePath);
-
-            var pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
-            _logger.LogInformation("PDF created successfully. FileName: {outputPath}", Path.GetFileName(outputPath));
-
-            await CleanUpFiles(outputPath, tempBgFilePath);
-            return pdfBytes;
-        }
-
-        private async Task<byte[]> ProcessTemplateCreation(TicketHandling ticketHandling, IFormFile bgFile, string name, bool saveToDb)
-        {
-            string tempBgFilePath = Path.GetRandomFileName();
-            await using (var stream = new FileStream(tempBgFilePath, FileMode.Create))
-            {
-                await bgFile.CopyToAsync(stream);
-            }
-
-            var outputPath = _pdfService.GetTemporaryPdfFilePath();
-            await _pdfService.CreatePdfAsync(outputPath, ticketHandling, tempBgFilePath);
-
-            byte[] pdfBytes = Array.Empty<byte>();
-            if (saveToDb)
-            {
-                TemplateCUdto templateDetails = _pdfService.MapTicketHandlingToTemplateCUdto(ticketHandling);
-                templateDetails.Name = name;
-                await _pdfService.CreateTemplateAsync(templateDetails);
-            }
-            else
-            {
-                pdfBytes = await _fileService.ReadAllBytesAsync(outputPath);
-                _logger.LogInformation("PDF created successfully. FileName: {outputPath}", Path.GetFileName(outputPath));
-            }
-
-            await CleanUpFiles(outputPath, tempBgFilePath);
-            return pdfBytes;
         }
 
         private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements)

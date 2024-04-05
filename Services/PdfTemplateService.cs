@@ -40,72 +40,106 @@ namespace Services
 
         #region database methods
 
-        //public async Task<int> SaveFileToDatabaseAsync(byte[] fileData, int fileTypeID, int fileCategoryID, string description, string name)
-        //{
-        //    if (fileData == null || fileData.Length == 0)
-        //    {
-        //        _logger.LogError("Attempted to save an empty or null file data.");
-        //        throw new ArgumentException("The file data cannot be empty or null.");
-        //    }
+        public async Task<int> SaveFileToDatabaseAsync(byte[] fileData, string description, string name)
+        {
+            if (fileData == null || fileData.Length == 0)
+            {
+                _logger.LogError("Attempted to save an empty or null file data.");
+                throw new ArgumentException("The file data cannot be empty or null.");
+            }
 
-        //    await using var db = TicketTemplateDbContext.Create(_dbLogin);
-        //    var fileStorage = new FileStorage
-        //    {
-        //        Data = fileData,
-        //        CreateTime = DateTime.UtcNow,
-        //        ValidState = 1 // Assuming 1 is for valid
-        //    };
+            string? fileExtension = Path.GetExtension(name)?.ToLowerInvariant();
 
-        //    try
-        //    {
-        //        await db.FileStorage.AddAsync(fileStorage);
-        //        await db.SaveChangesAsync();
+            int fileTypeId = fileExtension switch
+            {
+                ".jpg" => 1,
+                ".png" => 2,
+                _ => throw new ArgumentException("Only JPG and PNG files are accepted.")
+            };
 
-        //        var fileDescription = new FileDescription
-        //        {
-        //            FileStorageID = fileStorage.FileStorageID,
-        //            FileTypeID = fileTypeID,
-        //            FileCategoryID = fileCategoryID,
-        //            Description = description,
-        //            Name = name,
-        //            CreateTime = DateTime.UtcNow,
-        //            ValidState = 1
-        //        };
+            int fileSize = fileData.Length;
+            int fileStorageId = 0;
 
-        //        await db.FileDescription.AddAsync(fileDescription);
-        //        await db.SaveChangesAsync();
+            await using var db = TicketTemplateDbContext.Create(_dbLogin);
 
-        //        return fileStorage.FileStorageID; // Return the ID of the saved file for linking purposes
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error saving file to database. Details: {Message}", ex.Message);
-        //        throw new InvalidOperationException("Failed to save the file to the database.", ex);
-        //    }
-        //}
+            var executionStrategy = db.Database.CreateExecutionStrategy();
 
-        //public async Task<byte[]> GetFileDataAsync(int fileStorageID)
-        //{
-        //    await using var db = TicketTemplateDbContext.Create(_dbLogin);
+            await executionStrategy.ExecuteAsync(async () =>
+            {
+                await using var transaction = await db.Database.BeginTransactionAsync();
 
-        //    try
-        //    {
-        //        var fileStorage = await db.FileStorage.FindAsync(fileStorageID);
+                try
+                {
+                    var existingFileDescription = await db.FileDescription
+            .FirstOrDefaultAsync(fd => fd.FileSize == fileSize && fd.FileTypeId == fileTypeId);
 
-        //        if (fileStorage == null)
-        //        {
-        //            _logger.LogWarning("File with ID {FileStorageID} not found.", fileStorageID);
-        //            throw new KeyNotFoundException($"File with ID {fileStorageID} not found.");
-        //        }
+                    if (existingFileDescription != null)
+                    {
+                        fileStorageId = existingFileDescription.FileStorageId;
+                        _logger.LogInformation("Using existing FileStorage entry with ID {Id}", fileStorageId);
+                    }
+                    else
+                    {
+                        var fileStorage = new FileStorage
+                        {
+                            Data = fileData,
+                        };
 
-        //        return fileStorage.Data;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error retrieving file data for FileStorageID {FileStorageID}. Details: {Message}", fileStorageID, ex.Message);
-        //        throw new InvalidOperationException($"Failed to retrieve the file data for FileStorageID {fileStorageID}.", ex);
-        //    }
-        //}
+                        await db.FileStorage.AddAsync(fileStorage);
+                        await db.SaveChangesAsync();
+
+                        var fileDescription = new FileDescription
+                        {
+                            FileStorageId = fileStorage.FileStorageId,
+                            FileTypeId = fileTypeId,
+                            FileCategoryId = 3,
+                            Description = description,
+                            Name = name,
+                            CreateTime = DateTime.Now,
+                            FileSize = fileData.Length
+                        };
+
+                        await db.FileDescription.AddAsync(fileDescription);
+                        await db.SaveChangesAsync();
+
+                        fileStorageId = fileStorage.FileStorageId;
+                    }
+
+                    await transaction.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Failed to save file to database.");
+                    throw new InvalidOperationException("Failed to save the file to database.", ex);
+                }
+            });
+
+            return fileStorageId;
+        }
+
+        public async Task<byte[]> GetFileDataAsync(int? fileStorageID)
+        {
+            await using var db = TicketTemplateDbContext.Create(_dbLogin);
+
+            try
+            {
+                var fileStorage = await db.FileStorage.FindAsync(fileStorageID);
+
+                if (fileStorage == null)
+                {
+                    _logger.LogWarning("File with ID {FileStorageID} not found.", fileStorageID);
+                    throw new KeyNotFoundException($"File with ID {fileStorageID} not found.");
+                }
+
+                return fileStorage.Data;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving file data for FileStorageID {FileStorageID}. Details: {Message}", fileStorageID, ex.Message);
+                throw new InvalidOperationException($"Failed to retrieve the file data for FileStorageID {fileStorageID}.", ex);
+            }
+        }
 
         public async Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int showEventInfo)
         {
@@ -130,9 +164,28 @@ namespace Services
                 throw new InvalidOperationException($"Failed to retrieve predefined TicketHandling for ShowEventInfo: {showEventInfo}.", ex);
             }
         }
-        }
 
-        }
+        public async Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int showEventInfo)
+        {
+            try
+            {
+                await using var db = TicketTemplateDbContext.Create(_dbLogin);
+                var template = await db.TicketTemplate
+                                                 .AsNoTracking()
+                                                 .FirstOrDefaultAsync(t => t.ShowEventInfo == showEventInfo);
+
+                if (template == null)
+                {
+                    _logger.LogWarning("No Template found with ShowEventInfo: {ShowEventInfo}", showEventInfo);
+                    return null;
+                }
+
+                return template;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in GetTicketTemplateByShowEventInfoAsync for ShowEventInfo: {ShowEventInfo}. {ErrorMessage}", showEventInfo, ex.Message);
+                throw new InvalidOperationException($"Failed to retrieve Template with ShowEventInfo: {showEventInfo}.", ex);
             }
         }
 
@@ -334,6 +387,41 @@ namespace Services
             return Path.Combine(tempDirectory, fileName);
         }
 
+        public async Task<string> GetFilePathAsync(int fileId)
+        {
+            try
+            {
+                await using var db = TicketTemplateDbContext.Create(_dbLogin);
+
+                var fileData = await db.FileStorage
+                    .Where(f => f.FileStorageId == fileId)
+                    .Join(db.FileDescription,
+                          storage => storage.FileStorageId,
+                          description => description.FileStorageId,
+                          (storage, description) => new { storage.Data, description.Name })
+                    .FirstOrDefaultAsync();
+
+                if (fileData == null)
+                {
+                    _logger.LogError("File with ID {FileId} not found.", fileId);
+                    throw new FileNotFoundException($"File with ID {fileId} not found.");
+                }
+
+                var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + Path.GetExtension(fileData.Name));
+
+                await File.WriteAllBytesAsync(tempFilePath, fileData.Data);
+
+                _logger.LogInformation("Temporary file created at {TempFilePath} for file ID {FileId}.", tempFilePath, fileId);
+
+                return tempFilePath;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error in GetFilePathAsync for file ID {FileId}.", fileId);
+                throw new InvalidOperationException("An unexpected error occurred while retrieving file path.", ex);
+            }
+        }
+
         public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
         {
             return new TemplateCUdto
@@ -349,38 +437,38 @@ namespace Services
         {
             try
             {
-            var ticketsData = await GetTicketsDataByWebbUidAsync(webbUid);
-            if (!ticketsData.Any())
-            {
-                _logger.LogWarning("No tickets found for WebbUid: {WebbUid}", webbUid);
-                throw new KeyNotFoundException($"No tickets found for WebbUid: {webbUid}.");
-            }
-
-            using var document = new PdfDocument();
-            foreach (var ticketData in ticketsData)
-            {
-                var ticketHandling = await GetPredefinedTicketHandlingAsync(ticketData.showEventInfo);
-                if (ticketHandling == null)
+                var ticketsData = await GetTicketsDataByWebbUidAsync(webbUid);
+                if (!ticketsData.Any())
                 {
-                    _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", ticketData.showEventInfo);
-                    continue;
+                    _logger.LogWarning("No tickets found for WebbUid: {WebbUid}", webbUid);
+                    throw new KeyNotFoundException($"No tickets found for WebbUid: {webbUid}.");
                 }
 
-                var page = document.Pages.Add();
-                await DrawPageContent(page, _backgroundImagePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
+                using var document = new PdfDocument();
+                foreach (var ticketData in ticketsData)
+                {
+                    var ticketHandling = await GetPredefinedTicketHandlingAsync(ticketData.showEventInfo);
+                    if (ticketHandling == null)
+                    {
+                        _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", ticketData.showEventInfo);
+                        continue;
+                    }
+
+                    var page = document.Pages.Add();
+                    await DrawPageContent(page, _backgroundImagePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
+                }
+
+                if (document.Pages.Count == 0)
+                {
+                    _logger.LogWarning("No pages created in the document for WebbUid: {WebbUid}", webbUid);
+                    throw new InvalidOperationException("Failed to create any pages in the PDF document.");
+                }
+
+                await SaveDocumentAsync(document, outputPath);
+                _logger.LogInformation("Combined PDF created successfully with {PageCount} pages at {OutputPath}", document.Pages.Count, outputPath);
+
+                return await File.ReadAllBytesAsync(outputPath);
             }
-
-            if (document.Pages.Count == 0)
-            {
-                _logger.LogWarning("No pages created in the document for WebbUid: {WebbUid}", webbUid);
-                throw new InvalidOperationException("Failed to create any pages in the PDF document.");
-            }
-
-            await SaveDocumentAsync(document, outputPath);
-            _logger.LogInformation("Combined PDF created successfully with {PageCount} pages at {OutputPath}", document.Pages.Count, outputPath);
-
-            return await File.ReadAllBytesAsync(outputPath);
-        }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An exception occurred while creating a combined PDF for WebbUid: {WebbUid} at outputPath: {OutputPath}.", webbUid, outputPath);
@@ -393,7 +481,6 @@ namespace Services
             try
             {
                 var ticketType = ticketHandling.DetermineTicketType();
-
                 var ticketData = GenerateMockTicketData(ticketType);
 
                 using PdfDocument document = new();
@@ -584,9 +671,7 @@ namespace Services
                     origin.Y + ((positionY ?? 0) * scale));
                 string text = value is IFormattable formattableValue
                     ? formattableValue.ToString(format, CultureInfo.InvariantCulture)
-#pragma warning disable S2589 // Suppressing S2589: 'value?.ToString() ?? string.Empty' handles nulls safely for dynamic 'value'.
                     : value?.ToString() ?? string.Empty;
-#pragma warning restore S2589 // Necessary to ensure string representation for any object type, including handling of null ToString().
                 graphics.DrawString(text, font, PdfBrushes.Black, position);
             }
         }

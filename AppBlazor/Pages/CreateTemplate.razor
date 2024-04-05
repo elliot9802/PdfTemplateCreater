@@ -19,56 +19,8 @@
         </select>
     </div>
 
- @*    <!-- Dynamic Form Generation Section -->
-    <PropertyGroupComponent TicketHandling="@ticketHandling" />
-
-    <!-- Custom Text Elements -->
-    <CustomTextComponent CustomTexts="@customTexts" /> *@
-@* 
-    <!-- File Upload Section -->
-    <UserFileInputComponent OnFileUploaded="HandleFileUploaded" /> *@
-
-    @* <!-- Template Name Input Section -->
-    <div class="mb-3">
-        <label for="templateName" class="form-label">Mallnamn</label>
-        <input type="text" class="form-control" id="templateName" @bind="templateName" placeholder="Namnge din mall" required>
-    </div>
-
-    <!-- Action Buttons -->
-    <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm" disabled="@isPreviewLoading">
-        @if (isPreviewLoading)
-        {
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <span>
-                Laddar...
-            </span>
-        }
-        else
-        {
-            <span>
-                Förhandsgranska PDF
-            </span>
-        }
-    </button>
-    <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm" disabled="@isSaveLoading">
-        @if (isSaveLoading)
-        {
-            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-            <span>
-                Sparar...
-            </span>
-        }
-        else
-        {
-            <span>
-                Spara PDF mallen
-            </span>
-        }
-    </button> *@
-
     <!-- PDF Creator Component -->
-    <PdfCreatorComponent OnSave="HandlePdfSaved" customTexts="@customTexts" ticketHandling="@ticketHandling" />
-
+    <PdfCreatorComponent OnSave="HandlePdfSaved" CustomTexts="@ticketHandling.CustomTextElements" TicketHandling="@ticketHandling" />
 
     <!-- PDF Preview Section -->
     <PdfPreviewComponent PdfBase64="@pdfBase64" />

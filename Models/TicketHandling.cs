@@ -2,7 +2,6 @@
 {
     public class TicketHandling
     {
-
         #region Include
 
         public bool IncludeAd { get; set; }
@@ -125,10 +124,6 @@
             }
         }
 
-        /// <summary>
-        /// Create predefined TicketHandling instances for tickets.
-        /// </summary>
-        /// <returns>A TicketHandling instance with the predefined configuration</returns>
         public static TicketHandling CreateNumreradTicketHandling()
         {
             return new TicketHandling
@@ -159,6 +154,7 @@
                 IncludeSubEventName = true,
                 IncludeWebbcode = false,
                 IncludeWebBookingNr = true,
+                AddScissorsLine = true,
 
                 // Set up common positions
                 ArtNamePositionX = 30.0f,
@@ -179,7 +175,7 @@
                 EntrancePositionY = 210.0f,
                 EventDatePositionX = 30.0f,
                 EventDatePositionY = 240.0f,
-                EventNamePositionX = 580.0f,
+                EventNamePositionX = 570.0f,
                 EventNamePositionY = 35.0f,
                 FacilityNamePositionX = 585.0f,
                 FacilityNamePositionY = 135.0f,
@@ -193,6 +189,15 @@
                 SubEventNamePositionY = 65.0f,
                 WebBookingNrPositionX = 30.0f,
                 WebBookingNrPositionY = 146.0f,
+                CustomTextElements = new List<CustomTextElement>
+                {
+                    new("- Köpt biljett återlöses ej -", 120, 265, 8, null),
+                    new("Serviceavgift", 250, 185, 8, null),
+                    new("Sektion", 398, 185, 9, "#7a7979"),
+                    new("Plats", 640, 185, 9, "#7a7979"),
+                    new("Rad", 580, 185, 9, "#7a7979"),
+                    new("Ingång", 788, 185, 9, "#7a7979")
+                }
             };
         }
 
@@ -202,8 +207,16 @@
             ticketHandling.IncludeChairNr = false;
             ticketHandling.IncludeEntrance = false;
 
-            ticketHandling.ChairRowPositionX = 580.0f;
-            ticketHandling.ChairRowPositionY = 210.0f;
+            ticketHandling.ChairRowPositionX = 640.0f;
+            ticketHandling.EventNamePositionX = 545.0f;
+            ticketHandling.CustomTextElements = new List<CustomTextElement>
+            {
+                new("- Köpt biljett återlöses ej -", 120, 265, 8, null),
+                new("Serviceavgift", 250, 185, 8, null),
+                new("Sektion", 398, 185, 9, "#7a7979"),
+                new("Rad", 640, 185, 9, "#7a7979"),
+                new("Ingång", 788, 185, 9, "#7a7979")
+            };
             return ticketHandling;
         }
 
@@ -219,8 +232,11 @@
 
             ticketHandling.RutBokstavPositionX = 825.0f;
             ticketHandling.RutBokstavPositionY = 280.0f;
-            ticketHandling.EventNamePositionX = 540.0f;
-
+            ticketHandling.CustomTextElements = new List<CustomTextElement>
+            {
+                new("- Köpt biljett återlöses ej -", 120, 265, 8, null),
+                new("Serviceavgift", 250, 185, 8, null),
+            };
             return ticketHandling;
         }
     }

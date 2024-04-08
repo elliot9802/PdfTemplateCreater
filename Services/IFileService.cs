@@ -10,5 +10,7 @@
         bool Exists(string path);
 
         Task<byte[]> ReadAllBytesAsync(string path);
+
+        Task WriteFileAsync(string path, byte[] data);
     }
 }

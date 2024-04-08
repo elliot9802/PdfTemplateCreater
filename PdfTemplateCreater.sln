@@ -17,6 +17,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Configuration", "Configurat
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AppBlazor", "AppBlazor\AppBlazor.csproj", "{544F967F-B61B-495C-9779-B3D4C7E33BA8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DbRepos", "DbRepos\DbRepos.csproj", "{C63BBE83-2D92-4A96-B986-6AA1EE683714}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -51,6 +53,10 @@ Global
 		{544F967F-B61B-495C-9779-B3D4C7E33BA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{544F967F-B61B-495C-9779-B3D4C7E33BA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{544F967F-B61B-495C-9779-B3D4C7E33BA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C63BBE83-2D92-4A96-B986-6AA1EE683714}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C63BBE83-2D92-4A96-B986-6AA1EE683714}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C63BBE83-2D92-4A96-B986-6AA1EE683714}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C63BBE83-2D92-4A96-B986-6AA1EE683714}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

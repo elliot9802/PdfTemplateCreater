@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Configuration\Configuration.csproj" />
     <ProjectReference Include="..\DbContext\DbContext.csproj" />
     <ProjectReference Include="..\DbModels\DbModels.csproj" />
     <ProjectReference Include="..\Models\Models.csproj" />

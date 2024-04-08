@@ -1,3 +1,4 @@
+using DbRepos;
 using Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,8 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpClient();
 builder.Services.AddLogging();
 builder.Services.AddControllers();
+
+builder.Services.AddScoped<TemplateRepository>();
 builder.Services.AddScoped<IPdfTemplateService, PdfTemplateService>();
-builder.Services.AddTransient<IFileService, FileService>();
+builder.Services.AddScoped<IFileService, FileService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

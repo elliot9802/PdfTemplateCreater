@@ -1,7 +1,6 @@
 ﻿using Configuration;
-using DbContext;
 using DbModels;
-using Microsoft.EntityFrameworkCore;
+using DbRepos;
 using Microsoft.Extensions.Logging;
 using Models;
 using Newtonsoft.Json;
@@ -9,7 +8,6 @@ using Syncfusion.Drawing;
 using Syncfusion.Pdf;
 using Syncfusion.Pdf.Barcode;
 using Syncfusion.Pdf.Graphics;
-using System.Data.Common;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -19,263 +17,51 @@ namespace Services
     {
         #region constructor logic
 
-        private readonly string _backgroundImagePath;
-        private readonly string _dbLogin;
+        private readonly TemplateRepository _repo;
         private readonly ILogger<PdfTemplateService> _logger;
         private readonly string _scissorsLineImagePath;
 
-        public PdfTemplateService(ILogger<PdfTemplateService> logger)
+        public PdfTemplateService(TemplateRepository repo, ILogger<PdfTemplateService> logger)
         {
+            _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-            var dbLoginDetail = AppConfig.DbLoginDetails("DbLogins");
-            _dbLogin = dbLoginDetail.DbConnectionString ?? throw new InvalidOperationException("Database connection string is not configured.");
-
             var imagePaths = AppConfig.ImagePathSettings;
-            _backgroundImagePath = imagePaths.BackgroundImagePath ?? throw new KeyNotFoundException("BackgroundImagePath configuration is missing.");
             _scissorsLineImagePath = imagePaths.ScissorsLineImagePath ?? throw new KeyNotFoundException("ScissorsLineImagePath configuration is missing.");
         }
 
         #endregion constructor logic
 
-        #region database methods
+        #region 1:1 calls
 
-        public async Task<int> SaveFileToDatabaseAsync(byte[] fileData, string description, string name)
-        {
-            if (fileData == null || fileData.Length == 0)
-            {
-                _logger.LogError("Attempted to save an empty or null file data.");
-                throw new ArgumentException("The file data cannot be empty or null.");
-            }
+        public Task<int> SaveFileToDatabaseAsync(byte[] fileData, string description, string name) => _repo.SaveFileToDatabaseAsync(fileData, description, name);
 
-            string? fileExtension = Path.GetExtension(name)?.ToLowerInvariant();
+        public Task<byte[]> GetFileDataAsync(int? fileStorageID) => _repo.GetFileDataAsync(fileStorageID);
 
-            int fileTypeId = fileExtension switch
-            {
-                ".jpg" => 1,
-                ".png" => 2,
-                _ => throw new ArgumentException("Only JPG and PNG files are accepted.")
-            };
+        public Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int showEventInfo) => _repo.GetPredefinedTicketHandlingAsync(showEventInfo);
 
-            int fileSize = fileData.Length;
-            int fileStorageId = 0;
+        public Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int showEventInfo) => _repo.GetTicketTemplateByShowEventInfoAsync(showEventInfo);
 
-            await using var db = TicketTemplateDbContext.Create(_dbLogin);
+        public Task<TicketTemplateDto> GetTemplateByIdAsync(Guid ticketTemplateId) => _repo.GetTemplateByIdAsync(ticketTemplateId);
 
-            var executionStrategy = db.Database.CreateExecutionStrategy();
+        public Task<List<TicketTemplateDto>> ReadTemplatesAsync() => _repo.ReadTemplatesAsync();
 
-            await executionStrategy.ExecuteAsync(async () =>
-            {
-                await using var transaction = await db.Database.BeginTransactionAsync();
+        public Task<IEnumerable<TicketsDataView>> GetTicketsDataByWebbUidAsync(Guid webbUid) => _repo.GetTicketsDataByWebbUidAsync(webbUid);
 
-                try
-                {
-                    var existingFileDescription = await db.FileDescription
-            .FirstOrDefaultAsync(fd => fd.FileSize == fileSize && fd.FileTypeId == fileTypeId);
+        public Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src) => _repo.CreateTemplateAsync(_src);
 
-                    if (existingFileDescription != null)
-                    {
-                        fileStorageId = existingFileDescription.FileStorageId;
-                        _logger.LogInformation("Using existing FileStorage entry with ID {Id}", fileStorageId);
-                    }
-                    else
-                    {
-                        var fileStorage = new FileStorage
-                        {
-                            Data = fileData,
-                        };
+        public Task<TicketTemplateDto> UpdateTemplateAsync(TicketTemplateDto templateDto) => _repo.UpdateTemplateAsync(templateDto);
 
-                        await db.FileStorage.AddAsync(fileStorage);
-                        await db.SaveChangesAsync();
+        public Task<ITicketTemplate> DeleteTemplateAsync(Guid id) => _repo.DeleteTemplateAsync(id);
 
-                        var fileDescription = new FileDescription
-                        {
-                            FileStorageId = fileStorage.FileStorageId,
-                            FileTypeId = fileTypeId,
-                            FileCategoryId = 3,
-                            Description = description,
-                            Name = name,
-                            CreateTime = DateTime.Now,
-                            FileSize = fileData.Length
-                        };
+        public Task<string> GetFilePathAsync(int fileId) => _repo.GetFilePathAsync(fileId);
 
-                        await db.FileDescription.AddAsync(fileDescription);
-                        await db.SaveChangesAsync();
+        #endregion 1:1 calls
 
-                        fileStorageId = fileStorage.FileStorageId;
-                    }
+        #region Creating Pdf methods
 
-                    await transaction.CommitAsync();
-                }
-                catch (Exception ex)
-                {
-                    await transaction.RollbackAsync();
-                    _logger.LogError(ex, "Failed to save file to database.");
-                    throw new InvalidOperationException("Failed to save the file to database.", ex);
-                }
-            });
-
-            return fileStorageId;
-        }
-
-        public async Task<byte[]> GetFileDataAsync(int? fileStorageID)
-        {
-            await using var db = TicketTemplateDbContext.Create(_dbLogin);
-
-            try
-            {
-                var fileStorage = await db.FileStorage.FindAsync(fileStorageID);
-
-                if (fileStorage == null)
-                {
-                    _logger.LogWarning("File with ID {FileStorageID} not found.", fileStorageID);
-                    throw new KeyNotFoundException($"File with ID {fileStorageID} not found.");
-                }
-
-                return fileStorage.Data;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving file data for FileStorageID {FileStorageID}. Details: {Message}", fileStorageID, ex.Message);
-                throw new InvalidOperationException($"Failed to retrieve the file data for FileStorageID {fileStorageID}.", ex);
-            }
-        }
-
-        public async Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int showEventInfo)
-        {
-            try
-            {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
-                var predefinedTemplate = await db.TicketTemplate
-                                                 .AsNoTracking()
-                                                 .FirstOrDefaultAsync(t => t.ShowEventInfo == showEventInfo);
-
-                if (predefinedTemplate == null)
-                {
-                    _logger.LogWarning("No predefined TicketHandling found for ShowEventInfo: {ShowEventInfo}", showEventInfo);
-                    return null;
-                }
-
-                return predefinedTemplate.TicketsHandling;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in GetPredefinedTicketHandlingAsync for ShowEventInfo: {ShowEventInfo}. {ErrorMessage}", showEventInfo, ex.Message);
-                throw new InvalidOperationException($"Failed to retrieve predefined TicketHandling for ShowEventInfo: {showEventInfo}.", ex);
-            }
-        }
-
-        public async Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int showEventInfo)
-        {
-            try
-            {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
-                var template = await db.TicketTemplate
-                                                 .AsNoTracking()
-                                                 .FirstOrDefaultAsync(t => t.ShowEventInfo == showEventInfo);
-
-                if (template == null)
-                {
-                    _logger.LogWarning("No Template found with ShowEventInfo: {ShowEventInfo}", showEventInfo);
-                    return null;
-                }
-
-                return template;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in GetTicketTemplateByShowEventInfoAsync for ShowEventInfo: {ShowEventInfo}. {ErrorMessage}", showEventInfo, ex.Message);
-                throw new InvalidOperationException($"Failed to retrieve Template with ShowEventInfo: {showEventInfo}.", ex);
-            }
-        }
-
-        public async Task<TicketTemplateDto> GetTemplateByIdAsync(Guid ticketTemplateId)
-        {
-            await using var db = TicketTemplateDbContext.Create(_dbLogin);
-            var template = await db.TicketTemplate
-                .Where(t => t.TicketTemplateId == ticketTemplateId)
-                .Select(t => new TicketTemplateDto
-                {
-                    TicketTemplateId = t.TicketTemplateId,
-                    ShowEventInfo = t.ShowEventInfo,
-                    TicketHandlingJson = t.TicketsHandlingJson,
-                    Name = t.Name
-                }).FirstOrDefaultAsync();
-
-            return template ?? throw new KeyNotFoundException($"Template with ID {ticketTemplateId} not found.");
-        }
-
-        public async Task<TicketsDataView?> GetTicketDataAsync(int? ticketId, int? showEventInfo)
-        {
-            try
-            {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
-                var query = db.Vy_ShowTickets.AsNoTracking();
-
-                if (showEventInfo.HasValue)
-                {
-                    query = query.Where(t => t.showEventInfo == showEventInfo.Value);
-                }
-                else
-                {
-                    const string warningMessage = "GetTicketDataAsync requires either a ticketId or showEventInfo to filter the data.";
-                    _logger.LogWarning(warningMessage);
-                    throw new ArgumentException(warningMessage);
-                }
-                var templateData = await query.FirstOrDefaultAsync();
-                if (templateData == null)
-                    _logger.LogWarning("No matching ticket data found for showEventInfo: {ShowEventInfo}.", showEventInfo);
-
-                return templateData;
-            }
-            catch (DbException dbEx)
-            {
-                _logger.LogError(dbEx, "Database error in GetTicketDataAsync for showEventInfo: {ShowEventInfo}.", showEventInfo);
-                throw new InvalidOperationException($"An error occurred while accessing the database for showEventInfo: {showEventInfo}. See inner exception for details.", dbEx);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error in GetTicketDataAsync for showEventInfo: {ShowEventInfo}.", showEventInfo);
-                throw new InvalidOperationException("An error occurred while accessing the database for showEventInfo: { showEventInfo}. See inner exception for details.", ex);
-            }
-        }
-
-        public async Task<List<TicketTemplateDto>> ReadTemplatesAsync()
-        {
-            try
-            {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
-                var templates = await db.TicketTemplate.Select(t => new TicketTemplateDto
-                {
-                    TicketTemplateId = t.TicketTemplateId,
-                    ShowEventInfo = t.ShowEventInfo,
-                    TicketHandlingJson = t.TicketsHandlingJson,
-                    Name = t.Name
-                }).ToListAsync();
-
-                _logger.LogInformation("Retrieved {TemplateCount} templates", templates.Count);
-                return templates;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in ReadTemplatesAsync: {ErrorMessage}", ex.Message);
-                throw new InvalidOperationException("An error occurred while reading templates.", ex);
-            }
-        }
-
-        public async Task<IEnumerable<TicketsDataView>> GetTicketsDataByWebbUidAsync(Guid webbUid)
-        {
-            await using var db = TicketTemplateDbContext.Create(_dbLogin);
-
-            var tickets = await db.Vy_ShowTickets
-                                  .Where(ticket => ticket.WebbUid == webbUid)
-                                  .ToListAsync();
-
-            _logger.LogInformation("{TicketsCount} tickets retrieved for WebbUid: {WebbUid}", tickets.Count, webbUid);
-            return tickets;
-        }
-
-        public TicketsDataView GenerateMockTicketData(string ticketType)
+        public static TicketsDataView GenerateMockTicketData(string ticketType)
         {
             TicketsDataSeeder seeder = new();
             try
@@ -288,140 +74,6 @@ namespace Services
             }
         }
 
-        #endregion database methods
-
-        #region Creating Pdf methods
-
-        #region database methods
-
-        public async Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src)
-        {
-            try
-            {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
-
-                var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => (int?)t.ShowEventInfo) ?? 0;
-                _src.ShowEventInfo = maxShowEventInfo + 1;
-
-                var newTicketTemplate = new TicketTemplateDbM(_src)
-                {
-                    ShowEventInfo = _src.ShowEventInfo
-                };
-
-                await db.TicketTemplate.AddAsync(newTicketTemplate);
-                await db.SaveChangesAsync();
-
-                _logger.LogInformation("New template created with ShowEventInfo {NewShowEventInfo}", newTicketTemplate.ShowEventInfo);
-                return newTicketTemplate.TicketsHandling;
-            }
-            catch (DbUpdateException dbEx)
-            {
-                _logger.LogError(dbEx, "Database update error in CreateTemplateAsync.");
-                throw new InvalidOperationException("Failed to create new template due to database update error.", dbEx);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in CreateTemplateAsync: {ErrorMessage}", ex.Message);
-                throw new InvalidOperationException("An unexpected error occurred while creating a new template.", ex);
-            }
-        }
-
-        public async Task<TicketTemplateDto> UpdateTemplateAsync(TicketTemplateDto templateDto)
-        {
-            await using var db = TicketTemplateDbContext.Create(_dbLogin);
-            var templateToUpdate = await db.TicketTemplate.FindAsync(templateDto.TicketTemplateId) ?? throw new KeyNotFoundException($"Template with ID {templateDto.TicketTemplateId} not found.");
-            if (templateDto.Name != null)
-            {
-                templateToUpdate.Name = templateDto.Name;
-            }
-            else
-            {
-                _logger.LogWarning("Attempted to update a template with a null name for template ID {Id}.", templateDto.TicketTemplateId);
-                templateToUpdate.Name = "Default Name";
-            }
-            if (!string.IsNullOrWhiteSpace(templateDto.TicketHandlingJson))
-            {
-                var ticketHandlingFromDto = JsonConvert.DeserializeObject<TicketHandling>(templateDto.TicketHandlingJson);
-                if (ticketHandlingFromDto != null)
-                {
-                    templateToUpdate.TicketsHandling = ticketHandlingFromDto;
-                }
-            }
-
-            await db.SaveChangesAsync();
-
-            _logger.LogInformation("Template with ID {Id} has been updated.", templateDto.TicketTemplateId);
-            return templateDto;
-        }
-
-        public async Task<ITicketTemplate> DeleteTemplateAsync(Guid id)
-        {
-            try
-            {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
-                var templateToDelete = await db.TicketTemplate.FindAsync(id);
-
-                if (templateToDelete == null)
-                {
-                    _logger.LogWarning("Template with ID {Id} not found.", id);
-                    throw new KeyNotFoundException($"Template with id {id} not found.");
-                }
-
-                db.TicketTemplate.Remove(templateToDelete);
-                await db.SaveChangesAsync();
-
-                _logger.LogInformation("Template with ID {Id} has been deleted.", id);
-                return templateToDelete;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in DeleteTemplateAsync: {ErrorMessage}", ex.Message);
-                throw new InvalidOperationException($"An error occurred while attempting to delete template with ID {id}.", ex);
-            }
-        }
-
-        public string GetTemporaryPdfFilePath()
-        {
-            string tempDirectory = Path.GetTempPath();
-            string fileName = Guid.NewGuid().ToString("N") + ".pdf";
-            return Path.Combine(tempDirectory, fileName);
-        }
-
-        public async Task<string> GetFilePathAsync(int fileId)
-        {
-            try
-            {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
-
-                var fileData = await db.FileStorage
-                    .Where(f => f.FileStorageId == fileId)
-                    .Join(db.FileDescription,
-                          storage => storage.FileStorageId,
-                          description => description.FileStorageId,
-                          (storage, description) => new { storage.Data, description.Name })
-                    .FirstOrDefaultAsync();
-
-                if (fileData == null)
-                {
-                    _logger.LogError("File with ID {FileId} not found.", fileId);
-                    throw new FileNotFoundException($"File with ID {fileId} not found.");
-                }
-
-                var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + Path.GetExtension(fileData.Name));
-
-                await File.WriteAllBytesAsync(tempFilePath, fileData.Data);
-
-                _logger.LogInformation("Temporary file created at {TempFilePath} for file ID {FileId}.", tempFilePath, fileId);
-
-                return tempFilePath;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Unexpected error in GetFilePathAsync for file ID {FileId}.", fileId);
-                throw new InvalidOperationException("An unexpected error occurred while retrieving file path.", ex);
-            }
-        }
-
         public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
         {
             return new TemplateCUdto
@@ -431,10 +83,101 @@ namespace Services
             };
         }
 
-        #endregion database methods
-
-        public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, string outputPath)
+        public async Task<byte[]> GeneratePredefinedPdfAsync(int showEventInfo)
         {
+            var ticketHandlingData = await GetPredefinedTicketHandlingAsync(showEventInfo);
+            if (ticketHandlingData == null)
+            {
+                _logger.LogWarning("No predefined TicketHandling found for ShowEventInfo: {ShowEventInfo}", showEventInfo);
+                throw new KeyNotFoundException($"Predefined TicketHandling with ShowEventInfo {showEventInfo} not found.");
+            }
+
+            var ticketTemplate = await GetTicketTemplateByShowEventInfoAsync(showEventInfo);
+            if (ticketTemplate == null)
+            {
+                _logger.LogWarning("No Template found with ShowEventInfo: {ShowEventInfo}", showEventInfo);
+                throw new KeyNotFoundException($"Template with ShowEventInfo {showEventInfo} not found.");
+            }
+
+            byte[] bgFileData = await GetFileDataAsync(ticketTemplate.FileStorageID);
+            const string bgFileName = "Predefined"; // TODO: dynamically determine this based on the actual file
+
+            return await CreatePdfAsync(ticketHandlingData, bgFileData, bgFileName, null, false);
+        }
+
+        public async Task<byte[]> CreatePdfAsync(TicketHandling ticketHandling, byte[] bgFileData, string bgFileName, string? name, bool saveToDb)
+        {
+            if (saveToDb && string.IsNullOrWhiteSpace(name))
+            {
+                _logger.LogError("Template name is required when saving to the database.");
+                throw new ArgumentException("Template name is required when saving to the database.");
+            }
+
+            int bgFileId = 0;
+            string bgFilePath;
+            string outputPath = GetTemporaryPdfFilePath();
+            List<string> tempFiles = new() { outputPath };
+
+            if (saveToDb)
+            {
+                bgFileId = await SaveFileToDatabaseAsync(bgFileData, "Background Image for " + name, bgFileName);
+                bgFilePath = await GetFilePathAsync(bgFileId);
+            }
+            else
+            {
+                bgFilePath = SaveTempImage(bgFileData);
+                tempFiles.Add(bgFilePath);
+            }
+
+            try
+            {
+                var ticketType = ticketHandling.DetermineTicketType();
+                var ticketData = GenerateMockTicketData(ticketType);
+
+                using PdfDocument document = new();
+                PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
+                PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
+                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9);
+
+                PdfPage page = document.Pages.Add();
+                await DrawPageContent(page, bgFilePath, ticketData, ticketHandling, regularFont, boldFont, customFont);
+
+                await SaveDocumentAsync(document, outputPath);
+                _logger.LogInformation("PDF created successfully at {OutputPath}", outputPath);
+                if (!File.Exists(outputPath))
+                {
+                    throw new InvalidOperationException($"Expected PDF at {outputPath} was not found after creation.");
+                }
+                if (saveToDb)
+                {
+                    TemplateCUdto templateDetails = MapTicketHandlingToTemplateCUdto(ticketHandling);
+                    templateDetails.Name = name!;
+                    templateDetails.FileStorageID = bgFileId;
+                    await CreateTemplateAsync(templateDetails);
+                }
+
+                return await File.ReadAllBytesAsync(outputPath);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An exception occurred while creating a PDF at outputPath: {OutputPath}.", outputPath);
+                throw new InvalidOperationException("Failed to create a PDF. See inner exception for details.", ex);
+            }
+            finally
+            {
+                foreach (var tempFile in tempFiles)
+                {
+                    try { File.Delete(tempFile); _logger.LogInformation("Deleted temporary file: {TempFile}", tempFile); }
+                    catch (Exception ex) { _logger.LogError(ex, "Failed to delete temporary file: {TempFile}", tempFile); }
+                }
+            }
+        }
+
+        public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, int showEventInfo)
+        {
+            string outputPath = GetTemporaryPdfFilePath();
+            List<string> tempFiles = new() { outputPath };
+
             try
             {
                 var ticketsData = await GetTicketsDataByWebbUidAsync(webbUid);
@@ -447,15 +190,32 @@ namespace Services
                 using var document = new PdfDocument();
                 foreach (var ticketData in ticketsData)
                 {
-                    var ticketHandling = await GetPredefinedTicketHandlingAsync(ticketData.showEventInfo);
+                    var ticketTemplate = await GetTicketTemplateByShowEventInfoAsync(showEventInfo);
+                    if (ticketTemplate == null)
+                    {
+                        _logger.LogWarning("Ticket template not found for ShowEventInfo: {ShowEventInfo}", showEventInfo);
+                        continue; // Skip this ticket if its template cannot be retrieved
+                    }
+
+                    var fileData = await GetFileDataAsync(ticketTemplate.FileStorageID);
+                    if (fileData == null)
+                    {
+                        _logger.LogWarning("Background image data not found for FileStorageID: {FileStorageID}", ticketTemplate.FileStorageID);
+                        continue; // Skip this ticket if background image cannot be retrieved
+                    }
+
+                    string bgFilePath = SaveTempImage(fileData);
+                    tempFiles.Add(bgFilePath);
+
+                    var ticketHandling = await GetPredefinedTicketHandlingAsync(showEventInfo);
                     if (ticketHandling == null)
                     {
-                        _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", ticketData.showEventInfo);
+                        _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", showEventInfo);
                         continue;
                     }
 
                     var page = document.Pages.Add();
-                    await DrawPageContent(page, _backgroundImagePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
+                    await DrawPageContent(page, bgFilePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
                 }
 
                 if (document.Pages.Count == 0)
@@ -474,31 +234,13 @@ namespace Services
                 _logger.LogError(ex, "An exception occurred while creating a combined PDF for WebbUid: {WebbUid} at outputPath: {OutputPath}.", webbUid, outputPath);
                 throw new InvalidOperationException($"Failed to create combined PDF for WebbUid: {webbUid}. See inner exception for details.", ex);
             }
-        }
-
-        public async Task CreatePdfAsync(string outputPath, TicketHandling ticketHandling, string? backgroundImagePath)
-        {
-            try
+            finally
             {
-                var ticketType = ticketHandling.DetermineTicketType();
-                var ticketData = GenerateMockTicketData(ticketType);
-
-                using PdfDocument document = new();
-                PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
-                PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
-                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9);
-
-                PdfPage page = document.Pages.Add();
-                backgroundImagePath ??= _backgroundImagePath;
-                await DrawPageContent(page, backgroundImagePath, ticketData, ticketHandling, regularFont, boldFont, customFont);
-
-                await SaveDocumentAsync(document, outputPath);
-                _logger.LogInformation("PDF created successfully at {OutputPath}", outputPath);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in CreatePdfAsync: {ErrorMessage}", ex.Message);
-                throw new InvalidOperationException($"An unexpected error occurred while creating PDF at {outputPath}.", ex);
+                foreach (var tempFile in tempFiles)
+                {
+                    try { File.Delete(tempFile); }
+                    catch (Exception ex) { _logger.LogError(ex, "Failed to delete temporary file: {TempFile}", tempFile); }
+                }
             }
         }
 
@@ -689,36 +431,12 @@ namespace Services
             graphics.DrawString(bottomTxt, bottomTxtFont, PdfBrushes.Black, bottomTxtPosition);
         }
 
-        private static string? ExtractImageUrl(string htmlContent)
-        {
-            var match = Regex.Match(htmlContent, "<img.+?src=[\"'](.+?)[\"'].*?>", RegexOptions.IgnoreCase);
-            return match.Success ? match.Groups[1].Value : null;
-        }
-
-        private static string HandleHtmlEntities(string htmlContent)
-        {
-            Dictionary<string, string> entities = new()
-            {
-                {"&nbsp;", "\u00A0"}, {"&auml;", "ä"}, {"&aring;", "å"}, {"</p>", "</p><br/>"}
-            };
-            foreach (var entity in entities)
-            {
-                htmlContent = htmlContent.Replace(entity.Key, entity.Value);
-            }
-            return htmlContent;
-        }
-
-        private static string RemoveImageTag(string htmlContent)
-        {
-            return Regex.Replace(htmlContent, "<img.+?>", "", RegexOptions.IgnoreCase);
-        }
-
         private async Task SaveDocumentAsync(PdfDocument document, string outputPath)
         {
             try
             {
                 await using FileStream stream = new(outputPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                document.Save(stream);
+                await Task.Run(() => document.Save(stream));
                 _logger.LogInformation("PDF Ticket Creation succeeded and saved to {OutputPath}", outputPath);
             }
             catch (IOException ioEx)
@@ -802,6 +520,46 @@ namespace Services
                 Size = new SizeF(450 * scale, 205 * scale)
             };
             qrCode.Draw(graphics, barcodePosition);
+        }
+
+        private static string? ExtractImageUrl(string htmlContent)
+        {
+            var match = Regex.Match(htmlContent, "<img.+?src=[\"'](.+?)[\"'].*?>", RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value : null;
+        }
+
+        private static string HandleHtmlEntities(string htmlContent)
+        {
+            Dictionary<string, string> entities = new()
+            {
+                {"&nbsp;", "\u00A0"}, {"&auml;", "ä"}, {"&aring;", "å"}, {"</p>", "</p><br/>"}
+            };
+            foreach (var entity in entities)
+            {
+                htmlContent = htmlContent.Replace(entity.Key, entity.Value);
+            }
+            return htmlContent;
+        }
+
+        private static string RemoveImageTag(string htmlContent)
+        {
+            return Regex.Replace(htmlContent, "<img.+?>", "", RegexOptions.IgnoreCase);
+        }
+
+        private static string SaveTempImage(byte[] fileData)
+        {
+            string tempImagePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".png");
+            File.WriteAllBytes(tempImagePath, fileData);
+            return tempImagePath;
+        }
+
+        public string GetTemporaryPdfFilePath()
+        {
+            string tempDirectory = Path.GetTempPath();
+            string fileName = Guid.NewGuid().ToString("N") + ".pdf";
+            string fullPath = Path.Combine(tempDirectory, fileName);
+            _logger.LogInformation("Generated temporary PDF file path: {FullPath}", fullPath);
+            return fullPath;
         }
 
         #endregion Helper methods

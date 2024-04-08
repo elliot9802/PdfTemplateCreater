@@ -15,6 +15,10 @@
                         <label for="webbUidInput" class="form-label">User id</label>
                         <input type="text" class="form-control" id="webbUidInput" @bind="@webbUid" placeholder="Ange id för köpet">
                     </div>
+                    <div class="mb-3">
+                        <label for="ShowEventInfoNmr" class="form-label">ShowEventInfo Nummer</label>
+                        <input type="text" class="form-control" id="ShowEventInfoNmr" @bind="@ShowEventInfoNmr" placeholder="Ange ShowEventInfo Nummer för köpet">
+                    </div>
                     <button @onclick="PreviewTemplate" class="btn btn-primary"
                             disabled="@(isLoading || !webbUid.HasValue ? "disabled" : null)">
                         @if (isLoading)
@@ -60,6 +64,7 @@
     private ConfigService ConfigService => configService ?? throw new InvalidOperationException("ConfigService is not configured.");
     private string? pdfBase64;
     private Guid? webbUid;
+    private int? ShowEventInfoNmr;
     private bool isLoading = false;
     public string? ErrorMessage { get; set; }
 
@@ -71,7 +76,7 @@
 
         try
         {
-            var requestUri = ConfigService.GetApiUrl($"/api/PdfTemplate/CreateCombinedPdf?webbUid={webbUid}");
+            var requestUri = ConfigService.GetApiUrl($"/api/PdfTemplate/CreateCombinedPdf?webbUid={webbUid}&showEventInfo={ShowEventInfoNmr}");
             var emptyContent = new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
             var response = await HttpClient.PostAsync(requestUri, emptyContent);
 

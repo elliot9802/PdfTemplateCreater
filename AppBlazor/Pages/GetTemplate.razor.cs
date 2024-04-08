@@ -123,14 +123,7 @@ namespace AppBlazor.Pages
 
             if (selectedShowEventInfo.HasValue && selectedShowEventInfo > 0)
             {
-                string ticketId = selectedShowEventInfo switch
-                {
-                    1 => "16838",
-                    2 => "16860",
-                    3 => "16704",
-                    _ => "16835",
-                };
-                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/GetPredefinedTemplate/?showEventInfo={selectedShowEventInfo}&ticketId={ticketId}");
+                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/GetPredefinedTemplate/?showEventInfo={selectedShowEventInfo}");
                 var emptyContent = new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
                 try
                 {

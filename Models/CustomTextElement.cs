@@ -14,8 +14,7 @@ namespace Models
         }
 
         public CustomTextElement()
-        {
-        }
+        { }
 
         public Guid CustomTextId { get; set; } = Guid.NewGuid();
         public string? Text { get; set; }

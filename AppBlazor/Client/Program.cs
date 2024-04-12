@@ -16,6 +16,7 @@ namespace AppBlazor
             builder.Services.AddScoped<IPdfTemplateService, PdfTemplateService>();
             builder.Services.AddSingleton<ConfigService>();
 
+            builder.Logging.SetMinimumLevel(LogLevel.Debug);
             await builder.Build().RunAsync();
         }
     }

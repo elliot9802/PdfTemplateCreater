@@ -4,8 +4,6 @@ using DbModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Models;
-using Newtonsoft.Json;
-using System.Data.Common;
 
 namespace DbRepos
 {
@@ -22,13 +20,16 @@ namespace DbRepos
             _dbLogin = dbLoginDetail.DbConnectionString ?? throw new InvalidOperationException("Database connection string is not configured.");
         }
 
-        public async Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src)
+        public async Task<ITicketTemplate> CreateTemplateAsync(TemplateCUdto _src)
         {
+            if (_src.TicketTemplateId.HasValue && _src.TicketTemplateId != Guid.Empty)
+                throw new ArgumentException($"{nameof(_src.TicketTemplateId)} must be null when creating a new object.");
+
             try
             {
                 await using var db = TicketTemplateDbContext.Create(_dbLogin);
 
-                var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => (int?)t.ShowEventInfo) ?? 0;
+                var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => t.ShowEventInfo) ?? 0;
                 _src.ShowEventInfo = maxShowEventInfo + 1;
 
                 var newTicketTemplate = new TicketTemplateDbM(_src)
@@ -40,7 +41,7 @@ namespace DbRepos
                 await db.SaveChangesAsync();
 
                 _logger.LogInformation("New template created with ShowEventInfo {NewShowEventInfo}", newTicketTemplate.ShowEventInfo);
-                return newTicketTemplate.TicketsHandling;
+                return newTicketTemplate;
             }
             catch (DbUpdateException dbEx)
             {
@@ -162,20 +163,22 @@ namespace DbRepos
             }
         }
 
-        public async Task<TicketTemplateDto> GetTemplateByIdAsync(Guid ticketTemplateId)
+        public async Task<TemplateCUdto> GetTemplateByIdAsync(Guid id)
         {
             await using var db = TicketTemplateDbContext.Create(_dbLogin);
-            var template = await db.TicketTemplate
-                .Where(t => t.TicketTemplateId == ticketTemplateId)
-                .Select(t => new TicketTemplateDto
+            var template = await db.TicketTemplate.AsNoTracking()
+                .Where(t => t.TicketTemplateId == id)
+                .Select(t => new TemplateCUdto
                 {
                     TicketTemplateId = t.TicketTemplateId,
                     ShowEventInfo = t.ShowEventInfo,
                     TicketHandlingJson = t.TicketsHandlingJson,
-                    Name = t.Name
+                    Name = t.Name,
+                    FileStorageID = t.FileStorageID,
+                    TicketsHandling = t.TicketsHandling
                 }).FirstOrDefaultAsync();
 
-            return template ?? throw new KeyNotFoundException($"Template with ID {ticketTemplateId} not found.");
+            return template ?? throw new KeyNotFoundException($"Template with ID {id} not found.");
         }
 
         public async Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int showEventInfo)
@@ -214,21 +217,14 @@ namespace DbRepos
             return tickets;
         }
 
-        public async Task<List<TicketTemplateDto>> ReadTemplatesAsync()
+        public async Task<List<ITicketTemplate>> ReadTemplatesAsync()
         {
             try
             {
                 await using var db = TicketTemplateDbContext.Create(_dbLogin);
-                var templates = await db.TicketTemplate.Select(t => new TicketTemplateDto
-                {
-                    TicketTemplateId = t.TicketTemplateId,
-                    ShowEventInfo = t.ShowEventInfo,
-                    TicketHandlingJson = t.TicketsHandlingJson,
-                    Name = t.Name
-                }).ToListAsync();
+                var templates = db.TicketTemplate.AsNoTracking();
 
-                _logger.LogInformation("Retrieved {TemplateCount} templates", templates.Count);
-                return templates;
+                return await templates.ToListAsync<ITicketTemplate>();
             }
             catch (Exception ex)
             {
@@ -268,7 +264,7 @@ namespace DbRepos
                 try
                 {
                     var existingFileDescription = await db.FileDescription
-            .FirstOrDefaultAsync(fd => fd.FileSize == fileSize && fd.FileTypeId == fileTypeId);
+                                                .FirstOrDefaultAsync(fd => fd.FileSize == fileSize && fd.FileTypeId == fileTypeId);
 
                     if (existingFileDescription != null)
                     {
@@ -279,7 +275,7 @@ namespace DbRepos
                     {
                         var fileStorage = new FileStorage
                         {
-                            Data = fileData,
+                            Data = fileData
                         };
 
                         await db.FileStorage.AddAsync(fileStorage);
@@ -315,32 +311,23 @@ namespace DbRepos
             return fileStorageId;
         }
 
-        public async Task<TicketTemplateDto> UpdateTemplateAsync(TicketTemplateDto templateDto)
+        public async Task<ITicketTemplate> UpdateTemplateAsync(TemplateCUdto templateDto, byte[]? bgFileData = null, string? bgFileName = null)
         {
             await using var db = TicketTemplateDbContext.Create(_dbLogin);
-            var templateToUpdate = await db.TicketTemplate.FindAsync(templateDto.TicketTemplateId) ?? throw new KeyNotFoundException($"Template with ID {templateDto.TicketTemplateId} not found.");
-            if (templateDto.Name != null)
+            var templateToUpdate = await db.TicketTemplate.FindAsync(templateDto.TicketTemplateId)
+                                ?? throw new KeyNotFoundException($"Template with ID {templateDto.TicketTemplateId} not found.");
+
+            templateToUpdate.UpdateFromDTO(templateDto);
+
+            if (bgFileData?.Length > 0 && bgFileName != null)
             {
-                templateToUpdate.Name = templateDto.Name;
-            }
-            else
-            {
-                _logger.LogWarning("Attempted to update a template with a null name for template ID {Id}.", templateDto.TicketTemplateId);
-                templateToUpdate.Name = "Default Name";
-            }
-            if (!string.IsNullOrWhiteSpace(templateDto.TicketHandlingJson))
-            {
-                var ticketHandlingFromDto = JsonConvert.DeserializeObject<TicketHandling>(templateDto.TicketHandlingJson);
-                if (ticketHandlingFromDto != null)
-                {
-                    templateToUpdate.TicketsHandling = ticketHandlingFromDto;
-                }
+                templateToUpdate.FileStorageID = await SaveFileToDatabaseAsync(bgFileData, "Background Image for " + templateDto.Name, bgFileName);
             }
 
             await db.SaveChangesAsync();
-
             _logger.LogInformation("Template with ID {Id} has been updated.", templateDto.TicketTemplateId);
-            return templateDto;
+
+            return templateToUpdate;
         }
     }
 }

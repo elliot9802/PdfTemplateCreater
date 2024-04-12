@@ -13,12 +13,12 @@ namespace Services
 
         Task<byte[]> GeneratePredefinedPdfAsync(int showEventInfo);
 
-        Task<TicketTemplateDto> GetTemplateByIdAsync(Guid ticketTemplateId);
+        Task<TemplateCUdto> GetTemplateByIdAsync(Guid ticketTemplateId);
 
         TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling);
 
-        Task<TicketTemplateDto> UpdateTemplateAsync(TicketTemplateDto templateDto);
+        Task<ITicketTemplate> UpdateTemplateAsync(TemplateCUdto templateDto, byte[]? bgFileData, string? bgFileName);
 
-        Task<List<TicketTemplateDto>> ReadTemplatesAsync();
+        Task<List<ITicketTemplate>> ReadTemplatesAsync();
     }
 }

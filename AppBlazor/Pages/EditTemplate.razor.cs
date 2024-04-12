@@ -40,12 +40,12 @@ namespace AppBlazor.Pages
         {
             try
             {
-                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/GetTicketTemplate?ticketTemplateId={templateId}");
+                var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/ReadTemplate?id={templateId}");
                 var response = await HttpClient.GetAsync(requestUri);
                 if (response.IsSuccessStatusCode)
                 {
                     var jsonString = await response.Content.ReadAsStringAsync();
-                    var templateDTO = JsonConvert.DeserializeObject<TicketTemplateDto>(jsonString);
+                    var templateDTO = JsonConvert.DeserializeObject<TemplateCUdto>(jsonString);
 
                     if (templateDTO != null)
                     {
@@ -53,7 +53,7 @@ namespace AppBlazor.Pages
                             ? JsonConvert.DeserializeObject<TicketHandling>(templateDTO.TicketHandlingJson) ?? new TicketHandling()
                             : new TicketHandling();
                         showEventInfo = templateDTO.ShowEventInfo;
-                        templateName = templateDTO.Name ?? string.Empty;
+                        templateName = templateDTO.Name;
                     }
                     else
                     {

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Models;
+using Models.DTO;
 using Newtonsoft.Json;
 using Services;
 
@@ -9,34 +10,28 @@ namespace AppPdfTemplateWApi.Controllers
     [Route("api/[controller]/[action]")]
     public class PdfTemplateController : ControllerBase
     {
-        private readonly IFileService _fileService;
         private readonly ILogger<PdfTemplateController> _logger;
         private readonly IPdfTemplateService _pdfService;
 
-        public PdfTemplateController(IFileService fileService,
-                                     ILogger<PdfTemplateController> logger,
+        public PdfTemplateController(ILogger<PdfTemplateController> logger,
                                      IPdfTemplateService pdfTemplateService)
         {
-            _fileService = fileService ?? throw new ArgumentNullException(nameof(fileService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _pdfService = pdfTemplateService ?? throw new ArgumentNullException(nameof(pdfTemplateService));
         }
 
         //POST: api/PdfTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}
         [HttpPost]
-        public async Task<IActionResult> CreateTemplate([FromForm] TicketHandling ticketHandling,
-                                                 IFormFile bgFile,
-                                                 [FromForm] string? customTextElementsJson,
-                                                 [FromForm] string? name,
-                                                 bool saveToDb = false)
+        public async Task<IActionResult> CreateTemplate([FromForm] OptionsDto optionsDto, IFormFile bgFile)
         {
-            _logger.LogInformation("Processing template creation, Name: {Name}, Save to DB: {SaveToDb}", name, saveToDb);
+            _logger.LogInformation("Processing template creation, Name: {Name}, Save to DB: {SaveToDb}", optionsDto.Name, optionsDto.SaveToDb);
 
-            if (!TryDeserializeCustomTextElements(customTextElementsJson, out var customTextElements))
+            if (!TryDeserializeCustomTextElements(optionsDto.CustomTextElementsJson, out var customTextElements))
             {
                 _logger.LogWarning("Invalid format for custom text elements.");
                 return BadRequest("Invalid format for custom text elements.");
             }
+            optionsDto.TicketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
 
             if (bgFile == null || bgFile.Length == 0)
             {
@@ -51,47 +46,15 @@ namespace AppPdfTemplateWApi.Controllers
                 bgFileData = ms.ToArray();
             }
 
-            ticketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
-
             try
             {
-                await _pdfService.CreatePdfAsync(ticketHandling, bgFileData, bgFile.FileName, name, saveToDb);
-                return saveToDb ? Ok("Template created and saved to database.") : Ok("PDF created successfully.");
+                var pdfBytes = await _pdfService.CreatePdfAsync(optionsDto.TicketHandling, bgFileData, bgFile.FileName, optionsDto.Name, optionsDto.SaveToDb);
+                return optionsDto.SaveToDb ? Ok("Template created and saved to database.") : File(pdfBytes, "application/pdf", $"{Guid.NewGuid()}.pdf");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while processing the template creation");
                 return StatusCode(500, "An internal server error occurred.");
-            }
-        }
-
-        private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements)
-        {
-            elements = null;
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return true;
-            }
-            try
-            {
-                var settings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.None,
-                    Error = (sender, args) =>
-                    {
-                        _logger.LogError(args.ErrorContext.Error, "Deserialization error.");
-                        args.ErrorContext.Handled = true;
-                    }
-                };
-
-                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json, settings);
-                elements ??= new List<CustomTextElement>();
-                return true;
-            }
-            catch (JsonSerializationException ex)
-            {
-                _logger.LogError(ex, "Error deserializing customTextElementsJson: {ErrorMessage}", ex.Message);
-                return false;
             }
         }
 
@@ -142,27 +105,38 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
-        //GET: api/PdfTemplate/GetTicketTemplate?ticketTemplateId={ticketTemplateId}
+        //GET: api/PdfTemplate/ReadTemplate?id={id}
         [HttpGet]
-        public async Task<IActionResult> GetTicketTemplate(Guid? ticketTemplateId = null)
+        public async Task<IActionResult> ReadTemplate(string id)
+        {
+            if (!Guid.TryParse(id, out Guid _id))
+            {
+                return BadRequest("Guid format error");
+            }
+
+            var template = await _pdfService.GetTemplateByIdAsync(_id);
+            if (template == null)
+            {
+                _logger.LogWarning("Template With ID: {Id} not found.", _id);
+                return NotFound($"Template with ID {_id} not found.");
+            }
+            return Ok(template);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ReadTemplatesDto()
         {
             try
             {
-                if (ticketTemplateId.HasValue)
+                var templates = await _pdfService.ReadTemplatesAsync();
+                if (templates == null)
                 {
-                    var template = await _pdfService.GetTemplateByIdAsync(ticketTemplateId.Value);
-                    if (template == null)
-                    {
-                        _logger.LogWarning("Template With ID: {Id} not found.", ticketTemplateId);
-                        return NotFound($"Template with ID {ticketTemplateId} not found.");
-                    }
-                    return Ok(template);
+                    _logger.LogWarning("Templates not found");
+                    return NotFound("Templates not found.");
                 }
-                else
-                {
-                    var templates = await _pdfService.ReadTemplatesAsync();
-                    return Ok(templates);
-                }
+                var dtoList = templates.ConvertAll(t => new TemplateCUdto(t));
+
+                return Ok(dtoList);
             }
             catch (Exception ex)
             {
@@ -173,7 +147,7 @@ namespace AppPdfTemplateWApi.Controllers
 
         //PUT: api/PdfTemplate/UpdateTemplate
         [HttpPut]
-        public async Task<IActionResult> UpdateTemplate([FromBody] TicketTemplateDto templateDto)
+        public async Task<IActionResult> UpdateTemplate([FromForm] TemplateCUdto templateDto, IFormFile bgFile)
         {
             if (templateDto == null || templateDto.TicketTemplateId == Guid.Empty)
             {
@@ -181,9 +155,16 @@ namespace AppPdfTemplateWApi.Controllers
                 return BadRequest("Invalid template data.");
             }
 
+            byte[] bgFileData;
+            await using (var ms = new MemoryStream())
+            {
+                await bgFile.CopyToAsync(ms);
+                bgFileData = ms.ToArray();
+            }
+
             try
             {
-                var updatedTemplate = await _pdfService.UpdateTemplateAsync(templateDto);
+                var updatedTemplate = await _pdfService.UpdateTemplateAsync(templateDto, bgFileData, bgFile.FileName);
                 if (updatedTemplate == null)
                 {
                     _logger.LogWarning("Template with ID {Id} not found.", templateDto.TicketTemplateId);
@@ -243,6 +224,36 @@ namespace AppPdfTemplateWApi.Controllers
             {
                 _logger.LogError(ex, "An error occurred during the warm-up process.");
                 return StatusCode(500, "An internal server error occurred during warm-up.");
+            }
+        }
+
+        private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements) // TODO: move into service
+        {
+            elements = null;
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return true;
+            }
+            try
+            {
+                var settings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.None,
+                    Error = (sender, args) =>
+                    {
+                        _logger.LogError(args.ErrorContext.Error, "Deserialization error.");
+                        args.ErrorContext.Handled = true;
+                    }
+                };
+
+                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json, settings);
+                elements ??= new List<CustomTextElement>();
+                return true;
+            }
+            catch (JsonSerializationException ex)
+            {
+                _logger.LogError(ex, "Error deserializing customTextElementsJson: {ErrorMessage}", ex.Message);
+                return false;
             }
         }
     }

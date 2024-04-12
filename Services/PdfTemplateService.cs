@@ -43,15 +43,15 @@ namespace Services
 
         public Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int showEventInfo) => _repo.GetTicketTemplateByShowEventInfoAsync(showEventInfo);
 
-        public Task<TicketTemplateDto> GetTemplateByIdAsync(Guid ticketTemplateId) => _repo.GetTemplateByIdAsync(ticketTemplateId);
+        public Task<TemplateCUdto> GetTemplateByIdAsync(Guid ticketTemplateId) => _repo.GetTemplateByIdAsync(ticketTemplateId);
 
-        public Task<List<TicketTemplateDto>> ReadTemplatesAsync() => _repo.ReadTemplatesAsync();
+        public Task<List<ITicketTemplate>> ReadTemplatesAsync() => _repo.ReadTemplatesAsync();
 
         public Task<IEnumerable<TicketsDataView>> GetTicketsDataByWebbUidAsync(Guid webbUid) => _repo.GetTicketsDataByWebbUidAsync(webbUid);
 
-        public Task<TicketHandling> CreateTemplateAsync(TemplateCUdto _src) => _repo.CreateTemplateAsync(_src);
+        public Task<ITicketTemplate> CreateTemplateAsync(TemplateCUdto _src) => _repo.CreateTemplateAsync(_src);
 
-        public Task<TicketTemplateDto> UpdateTemplateAsync(TicketTemplateDto templateDto) => _repo.UpdateTemplateAsync(templateDto);
+        public Task<ITicketTemplate> UpdateTemplateAsync(TemplateCUdto templateDto, byte[]? bgFileData, string? bgFileName) => _repo.UpdateTemplateAsync(templateDto, bgFileData, bgFileName);
 
         public Task<ITicketTemplate> DeleteTemplateAsync(Guid id) => _repo.DeleteTemplateAsync(id);
 

@@ -18,7 +18,7 @@ namespace AppBlazor.Pages
         }
 
         // Component State Properties
-        private List<TicketTemplateDto>? templates;
+        private List<TemplateCUdto>? templates;
 
         private bool isLoading;
 
@@ -82,13 +82,13 @@ namespace AppBlazor.Pages
 
         private async Task LoadTemplatesAsync()
         {
-            var requestUri = ConfigService!.GetApiUrl("/api/PdfTemplate/GetTicketTemplate");
+            var requestUri = ConfigService!.GetApiUrl("/api/PdfTemplate/ReadTemplatesDto");
 
             var response = await HttpClient.GetAsync(requestUri);
             if (response.IsSuccessStatusCode)
             {
                 var jsonString = await response.Content.ReadAsStringAsync();
-                templates = JsonConvert.DeserializeObject<List<TicketTemplateDto>>(jsonString);
+                templates = JsonConvert.DeserializeObject<List<TemplateCUdto>>(jsonString);
             }
             else
             {

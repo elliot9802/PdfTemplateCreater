@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Models;
+using Models.DTO;
 using Newtonsoft.Json;
 using Services;
 using System.Reflection;
@@ -12,8 +13,8 @@ namespace AppBlazor.Components
     {
         [Parameter] public EventCallback<bool> OnSave { get; set; }
         [Parameter] public bool IsEditMode { get; set; }
-        [Parameter] public TicketHandling TicketHandling { get; set; } = new TicketHandling();
-        [Parameter] public List<CustomTextElement> CustomTexts { get; set; } = new List<CustomTextElement>();
+        [Parameter] public TicketHandling TicketHandling { get; set; } = new();
+        [Parameter] public List<CustomTextElement> CustomTexts { get; set; } = new();
         [Parameter] public Guid? TemplateId { get; set; }
         [Parameter] public string? TemplateName { get; set; }
         [Parameter] public int? ShowEventInfo { get; set; }
@@ -39,9 +40,9 @@ namespace AppBlazor.Components
 
         private readonly Dictionary<string, string> errorElementMap = new()
         {
-    { "Vänligen välj en bakgrundsbild innan du fortsätter", "backgroundImageUpload" },
-    { "Vänligen välj ett namn för din mall innan du fortsätter", "templateName" }
-};
+            { "Vänligen välj en bakgrundsbild innan du fortsätter", "backgroundImageUpload" },
+            { "Vänligen välj ett namn för din mall innan du fortsätter", "templateName" }
+        };
 
         private string currentFocusElementId = string.Empty;
         private bool shouldFocusOnError;
@@ -64,51 +65,43 @@ namespace AppBlazor.Components
             selectedTab = tab;
         }
 
-        //private async Task HandleFileUpload(InputFileChangeEventArgs e)
-        //{
-        //    const int maxAllowedFiles = 1;
-        //    var file = e.GetMultipleFiles(maxAllowedFiles).FirstOrDefault();
-        //    if (file != null)
-        //    {
-        //        var stream = file.OpenReadStream();
-        //        var buffer = new byte[file.Size];
-        //        await stream.ReadAsync(buffer);
-        //        bgFileContent = new ByteArrayContent(buffer);
-        //        bgFileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-        //        bgFileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
-        //        {
-        //            Name = "\"bgFile\"",
-        //            FileName = $"\"{file.Name}\""
-        //        };
-        //        ErrorMessage = string.Empty;
-        //    }
-        //}
+        protected override void OnParametersSet()
+        {
+            base.OnParametersSet();
+            templateName = TemplateName ?? string.Empty;
+        }
 
-        private MultipartFormDataContent CreateMultipartFormDataContent(ByteArrayContent bgFileContent, string fileName)
+        private MultipartFormDataContent CreateMultipartFormDataContent(ByteArrayContent bgFileContent, string fileName, bool saveToDb)
         {
             var content = new MultipartFormDataContent
             {
                 { bgFileContent, "bgFile", fileName }
             };
 
-            if (!string.IsNullOrWhiteSpace(templateName))
+            OptionsDto optionsDto = new()
             {
-                content.Add(new StringContent(templateName), "name");
-            }
+                TicketHandling = TicketHandling,
+                CustomTextElementsJson = System.Text.Json.JsonSerializer.Serialize(CustomTexts),
+                Name = templateName,
+                SaveToDb = saveToDb
+            };
 
-            foreach (PropertyInfo property in TicketHandling.GetType().GetProperties())
-            {
-                var value = property.GetValue(TicketHandling, null)?.ToString();
-                if (value != null)
-                {
-                    content.Add(new StringContent(value), property.Name);
-                }
-            }
-
-            var customTextElementsJson = System.Text.Json.JsonSerializer.Serialize(CustomTexts);
-            content.Add(new StringContent(customTextElementsJson, Encoding.UTF8, "application/json"), "customTextElementsJson");
+            AddPropertiesToContent(optionsDto.TicketHandling, content, "TicketHandling");
+            content.Add(new StringContent(optionsDto.CustomTextElementsJson, Encoding.UTF8, "application/json"), "CustomTextElementsJson");
+            content.Add(new StringContent(optionsDto.Name), "Name");
+            content.Add(new StringContent(optionsDto.SaveToDb.ToString().ToLower()), "SaveToDb");
 
             return content;
+        }
+
+        private static void AddPropertiesToContent(object obj, MultipartFormDataContent content, string prefix)
+        {
+            foreach (PropertyInfo property in obj.GetType().GetProperties())
+            {
+                object? value = property.GetValue(obj, null);
+                if (value != null)
+                    content.Add(new StringContent(value.ToString()), $"{prefix}.{property.Name}");
+            }
         }
 
         private async Task HandleResponse(HttpResponseMessage response, bool saveToDb)
@@ -194,7 +187,7 @@ namespace AppBlazor.Components
             }
 
             var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/CreateTemplate?saveToDb={saveToDb}");
-            var content = CreateMultipartFormDataContent(bgFileContent, fileName);
+            var content = CreateMultipartFormDataContent(bgFileContent, fileName, saveToDb);
 
             try
             {
@@ -225,21 +218,31 @@ namespace AppBlazor.Components
                 return;
             }
 
-            var templateDTO = new TicketTemplateDto
+            if (bgFileContent == null)
             {
-                TicketTemplateId = TemplateId.Value,
-                TicketHandlingJson = JsonConvert.SerializeObject(TicketHandling),
-                ShowEventInfo = ShowEventInfo.Value,
-                Name = templateName
-            };
+                ErrorMessage = "Please select a background file before proceeding";
+                return;
+            }
+            var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
+            if (string.IsNullOrEmpty(fileName))
+            {
+                ErrorMessage = "The file name was not provided.";
+                return;
+            }
 
-            var jsonContent = JsonConvert.SerializeObject(templateDTO);
-            var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+            var formData = new MultipartFormDataContent
+            {
+                { new StringContent(TemplateId.Value.ToString()), nameof(TemplateCUdto.TicketTemplateId) },
+                { new StringContent(templateName), nameof(TemplateCUdto.Name) },
+                { new StringContent(JsonConvert.SerializeObject(TicketHandling)), nameof(TemplateCUdto.TicketHandlingJson) },
+                { bgFileContent, "bgFile", fileName }
+            };
 
             try
             {
                 var requestUri = ConfigService!.GetApiUrl("/api/PdfTemplate/UpdateTemplate");
-                var response = await HttpClient.PutAsync(requestUri, content);
+                var response = await HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Put, requestUri) { Content = formData });
+
                 if (response.IsSuccessStatusCode)
                 {
                     SuccessMessage = "Template successfully updated!";

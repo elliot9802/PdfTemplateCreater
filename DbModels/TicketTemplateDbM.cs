@@ -9,7 +9,7 @@ namespace DbModels
     public class TicketTemplateDbM : TicketTemplate
     {
         [Required]
-        public override int ShowEventInfo { get; set; }
+        public override int? ShowEventInfo { get; set; }
 
         [NotMapped]
         public override TicketHandling TicketsHandling
@@ -27,7 +27,7 @@ namespace DbModels
         public override string Name { get; set; } = string.Empty;
 
         [Key]
-        public override Guid TicketTemplateId { get; set; }
+        public override Guid? TicketTemplateId { get; set; }
 
         [Required]
         public override int? FileStorageID { get; set; }
@@ -41,7 +41,7 @@ namespace DbModels
 
         public TicketTemplateDbM(TemplateCUdto org) : base(org)
         {
-            TicketTemplateId = org.TicketTemplateId != Guid.Empty ? org.TicketTemplateId : Guid.NewGuid();
+            TicketTemplateId = org.TicketTemplateId.HasValue && org.TicketTemplateId != Guid.Empty ? org.TicketTemplateId : Guid.NewGuid();
             TicketsHandlingJson = JsonConvert.SerializeObject(org.TicketsHandling ?? new TicketHandling());
             ShowEventInfo = org.ShowEventInfo;
             Name = org.Name;
@@ -58,8 +58,7 @@ namespace DbModels
                                         ? JsonConvert.DeserializeObject<TicketHandling>(org.TicketHandlingJson)
                                         : null;
             TicketsHandling = ticketHandlingFromDto ?? new TicketHandling();
-
-            ShowEventInfo = org.ShowEventInfo;
+            Name = org.Name;
             FileStorageID = org.FileStorageID;
         }
 

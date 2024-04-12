@@ -311,19 +311,8 @@ namespace Services
                 }
 
                 float fontSize = customTextElement.FontSize ?? 10f;
-                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, fontSize);
-
-                PdfColor color = new(0, 0, 0);
-
-                if (!string.IsNullOrEmpty(customTextElement.Color) && customTextElement.Color.StartsWith('#') && customTextElement.Color.Length == 7)
-                {
-                    color = new PdfColor(
-                        Convert.ToByte(customTextElement.Color.Substring(1, 2), 16),
-                        Convert.ToByte(customTextElement.Color.Substring(3, 2), 16),
-                        Convert.ToByte(customTextElement.Color.Substring(5, 2), 16));
-                }
-
-                PdfBrush customBrush = new PdfSolidBrush(color);
+                PdfFont customFont = GetCustomFont(fontSize);
+                PdfBrush customBrush = GetCustomBrush(customTextElement.Color);
 
                 PointF position = new(
                     origin.X + ((customTextElement.PositionX ?? 0) * scale),
@@ -331,6 +320,32 @@ namespace Services
                 );
 
                 graphics.DrawString(customTextElement.Text, customFont, customBrush, position);
+            }
+        }
+
+        private static PdfFont GetCustomFont(float fontSize)
+        {
+            return new PdfStandardFont(PdfFontFamily.Helvetica, fontSize);
+        }
+
+        private static PdfBrush GetCustomBrush(string? hexColor)
+        {
+            if (string.IsNullOrEmpty(hexColor) || !hexColor.StartsWith('#') || hexColor.Length != 7)
+            {
+                return new PdfSolidBrush(new PdfColor(0, 0, 0));
+            }
+
+            try
+            {
+                return new PdfSolidBrush(new PdfColor(
+                    Convert.ToByte(hexColor.Substring(1, 2), 16),
+                    Convert.ToByte(hexColor.Substring(3, 2), 16),
+                    Convert.ToByte(hexColor.Substring(5, 2), 16)
+                ));
+            }
+            catch
+            {
+                return new PdfSolidBrush(new PdfColor(0, 0, 0));
             }
         }
 

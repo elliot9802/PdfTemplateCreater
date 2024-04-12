@@ -25,7 +25,7 @@ namespace AppBlazor.Pages
 
         private readonly string pdfBase64 = string.Empty;
 
-        private int showEventInfo;
+        private int? showEventInfo;
 
         private string templateName = string.Empty;
 

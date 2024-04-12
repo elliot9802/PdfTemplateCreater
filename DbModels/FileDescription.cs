@@ -65,5 +65,5 @@ public partial class FileDescription
     public virtual ICollection<FileDescription> InverseChildFileStorage { get; set; } = new List<FileDescription>();
 
     [ForeignKey("FileStorageId")]
-    public virtual FileStorage FileStorage { get; set; }
+    public virtual FileStorage FileStorage { get; set; } = new FileStorage();
 }

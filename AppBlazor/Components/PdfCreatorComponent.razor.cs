@@ -100,7 +100,10 @@ namespace AppBlazor.Components
             {
                 object? value = property.GetValue(obj, null);
                 if (value != null)
-                    content.Add(new StringContent(value.ToString()), $"{prefix}.{property.Name}");
+                {
+                    string valueAsString = value.ToString() ?? string.Empty;
+                    content.Add(new StringContent(valueAsString, Encoding.UTF8), $"{prefix}.{property.Name}");
+                }
             }
         }
 

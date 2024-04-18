@@ -1,4 +1,5 @@
 ﻿using Models;
+using Models.DTO;
 using Newtonsoft.Json;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -27,7 +28,7 @@ namespace DbModels
         public override string Name { get; set; } = string.Empty;
 
         [Key]
-        public override Guid? TicketTemplateId { get; set; }
+        public override Guid TicketTemplateId { get; set; }
 
         [Required]
         public override int? FileStorageID { get; set; }
@@ -41,7 +42,7 @@ namespace DbModels
 
         public TicketTemplateDbM(TemplateCUdto org) : base(org)
         {
-            TicketTemplateId = org.TicketTemplateId.HasValue && org.TicketTemplateId != Guid.Empty ? org.TicketTemplateId : Guid.NewGuid();
+            TicketTemplateId = Guid.NewGuid();
             TicketsHandlingJson = JsonConvert.SerializeObject(org.TicketsHandling ?? new TicketHandling());
             ShowEventInfo = org.ShowEventInfo;
             Name = org.Name;

@@ -2,21 +2,38 @@
 {
     public class OptionsDto
     {
-        public TicketHandling TicketHandling { get; set; }
-        public string CustomTextElementsJson { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
+        private string _customTextElementsJson = string.Empty;
+        private string _ticketHandlingJson = string.Empty;
+        private string _name = string.Empty;
+
+        public string CustomTextElementsJson
+        {
+            get => _customTextElementsJson;
+            set => _customTextElementsJson = value ?? string.Empty;
+        }
+
+        public string TicketHandlingJson
+        {
+            get => _ticketHandlingJson;
+            set => _ticketHandlingJson = value ?? string.Empty;
+        }
+
+        public string Name
+        {
+            get => _name;
+            set => _name = value ?? string.Empty;
+        }
+
         public bool SaveToDb { get; set; }
 
         public OptionsDto()
-        {
-            TicketHandling = new TicketHandling();
-        }
+        { }
 
-        public OptionsDto(TicketHandling ticketHandling, string customTextElementsJson, string name, bool saveToDb)
+        public OptionsDto(string ticketHandlingJson, string customTextElementsJson, string name, bool saveToDb)
         {
-            TicketHandling = ticketHandling ?? throw new ArgumentNullException(nameof(ticketHandling));
-            CustomTextElementsJson = customTextElementsJson ?? throw new ArgumentNullException(nameof(customTextElementsJson));
-            Name = name ?? throw new ArgumentNullException(nameof(name));
+            TicketHandlingJson = ticketHandlingJson ?? string.Empty;
+            CustomTextElementsJson = customTextElementsJson ?? string.Empty;
+            Name = name ?? string.Empty;
             SaveToDb = saveToDb;
         }
     }

@@ -3,6 +3,7 @@ using DbModels;
 using DbRepos;
 using Microsoft.Extensions.Logging;
 using Models;
+using Models.DTO;
 using Newtonsoft.Json;
 using Syncfusion.Drawing;
 using Syncfusion.Pdf;
@@ -100,19 +101,13 @@ namespace Services
             }
 
             byte[] bgFileData = await GetFileDataAsync(ticketTemplate.FileStorageID);
-            const string bgFileName = "Predefined"; // TODO: dynamically determine this based on the actual file
+            const string bgFileName = "Predefined";
 
             return await CreatePdfAsync(ticketHandlingData, bgFileData, bgFileName, null, false);
         }
 
         public async Task<byte[]> CreatePdfAsync(TicketHandling ticketHandling, byte[] bgFileData, string bgFileName, string? name, bool saveToDb)
         {
-            if (saveToDb && string.IsNullOrWhiteSpace(name))
-            {
-                _logger.LogError("Template name is required when saving to the database.");
-                throw new ArgumentException("Template name is required when saving to the database.");
-            }
-
             int bgFileId = 0;
             string bgFilePath;
             string outputPath = GetTemporaryPdfFilePath();
@@ -131,16 +126,12 @@ namespace Services
 
             try
             {
-                var ticketType = ticketHandling.DetermineTicketType();
+                var ticketType = DetermineTicketType(ticketHandling);
                 var ticketData = GenerateMockTicketData(ticketType);
 
                 using PdfDocument document = new();
-                PdfFont regularFont = new PdfStandardFont(PdfFontFamily.Helvetica, 8);
-                PdfFont boldFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold);
-                PdfFont customFont = new PdfStandardFont(PdfFontFamily.Helvetica, 9);
-
                 PdfPage page = document.Pages.Add();
-                await DrawPageContent(page, bgFilePath, ticketData, ticketHandling, regularFont, boldFont, customFont);
+                await DrawPageContent(page, bgFilePath, ticketData, ticketHandling);
 
                 await SaveDocumentAsync(document, outputPath);
                 _logger.LogInformation("PDF created successfully at {OutputPath}", outputPath);
@@ -194,14 +185,14 @@ namespace Services
                     if (ticketTemplate == null)
                     {
                         _logger.LogWarning("Ticket template not found for ShowEventInfo: {ShowEventInfo}", showEventInfo);
-                        continue; // Skip this ticket if its template cannot be retrieved
+                        continue;
                     }
 
                     var fileData = await GetFileDataAsync(ticketTemplate.FileStorageID);
                     if (fileData == null)
                     {
                         _logger.LogWarning("Background image data not found for FileStorageID: {FileStorageID}", ticketTemplate.FileStorageID);
-                        continue; // Skip this ticket if background image cannot be retrieved
+                        continue;
                     }
 
                     string bgFilePath = SaveTempImage(fileData);
@@ -215,7 +206,7 @@ namespace Services
                     }
 
                     var page = document.Pages.Add();
-                    await DrawPageContent(page, bgFilePath, ticketData, ticketHandling, new PdfStandardFont(PdfFontFamily.Helvetica, 8), new PdfStandardFont(PdfFontFamily.Helvetica, 9, PdfFontStyle.Bold), new PdfStandardFont(PdfFontFamily.Helvetica, 9));
+                    await DrawPageContent(page, bgFilePath, ticketData, ticketHandling);
                 }
 
                 if (document.Pages.Count == 0)
@@ -244,36 +235,35 @@ namespace Services
             }
         }
 
-        private async Task DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataView ticketData, TicketHandling ticketHandling, PdfFont regularFont, PdfFont boldFont, PdfFont customFont)
+        private async Task DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataView ticketData, TicketHandling ticketHandling)
         {
             float scaleFactor = Math.Min(page.GetClientSize().Width / 1024f, 1);
             PointF ticketOrigin = new((page.GetClientSize().Width - (1024 * scaleFactor)) / 2, 0);
 
             DrawBackgroundImage(page, backgroundImagePath, ticketOrigin, scaleFactor);
-            DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketHandling, regularFont, boldFont, customFont);
+            DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketHandling);
             DrawCustomTextElements(page.Graphics, ticketHandling, ticketOrigin, scaleFactor);
             DrawBarcodeOrQRCode(page, ticketOrigin, scaleFactor, ticketHandling, ticketData);
             DrawScissorsLine(page.Graphics, ticketOrigin, scaleFactor, ticketHandling);
             DrawVitec(page.Graphics, scaleFactor);
             if (ticketHandling.IncludeAd)
             {
-                await DrawAd(page.Graphics, page, ticketData.reklam1, ticketOrigin, scaleFactor, regularFont, ticketHandling);
+                await DrawAd(page.Graphics, page, ticketData.reklam1, ticketOrigin, scaleFactor, ticketHandling);
             }
         }
 
-        private static async Task DrawAd(PdfGraphics graphics, PdfPage page, string htmlContent, PointF origin, float scale, PdfFont font, TicketHandling ticketHandling)
+        private static async Task DrawAd(PdfGraphics graphics, PdfPage page, string htmlContent, PointF origin, float scale, TicketHandling ticketHandling)
         {
             string? imageUrl = ExtractImageUrl(htmlContent);
             htmlContent = HandleHtmlEntities(htmlContent);
             htmlContent = RemoveImageTag(htmlContent);
 
             PointF adPosition = CalculateAdPosition(origin, scale, ticketHandling);
-
             if (!string.IsNullOrEmpty(imageUrl))
             {
                 await DrawAdImage(graphics, imageUrl, adPosition, scale);
             }
-            DrawHtmlContent(graphics, page, htmlContent, font, adPosition);
+            DrawHtmlContent(graphics, page, htmlContent, new PdfStandardFont(PdfFontFamily.Helvetica, 8), adPosition);
         }
 
         private static void DrawBackgroundImage(PdfPage page, string imagePath, PointF origin, float scale)
@@ -311,8 +301,8 @@ namespace Services
                 }
 
                 float fontSize = customTextElement.FontSize ?? 10f;
-                PdfFont customFont = GetCustomFont(fontSize);
-                PdfBrush customBrush = GetCustomBrush(customTextElement.Color);
+                PdfFont customFont = GetCustomFont(fontSize, customTextElement.FontStyle);
+                PdfBrush customBrush = GetCustomBrush(customTextElement.FontColor);
 
                 PointF position = new(
                     origin.X + ((customTextElement.PositionX ?? 0) * scale),
@@ -323,9 +313,18 @@ namespace Services
             }
         }
 
-        private static PdfFont GetCustomFont(float fontSize)
+        private static PdfFont GetCustomFont(float? fontSize, Models.FontStyle fontStyle)
         {
-            return new PdfStandardFont(PdfFontFamily.Helvetica, fontSize);
+            float resolvedFontSize = fontSize ?? 8;
+            PdfFontStyle pdfStyle = fontStyle switch
+            {
+                Models.FontStyle.Bold => PdfFontStyle.Bold,
+                Models.FontStyle.Italic => PdfFontStyle.Italic,
+                Models.FontStyle.Underline => PdfFontStyle.Underline,
+                Models.FontStyle.Strikeout => PdfFontStyle.Strikeout,
+                _ => PdfFontStyle.Regular,
+            };
+            return new PdfStandardFont(PdfFontFamily.Helvetica, resolvedFontSize, pdfStyle);
         }
 
         private static PdfBrush GetCustomBrush(string? hexColor)

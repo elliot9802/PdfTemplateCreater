@@ -57,7 +57,8 @@ namespace AppBlazor.Components
         {
             Info,
             CustomText,
-            PropertyGroup
+            PropertyGroup,
+            Others
         }
 
         private Tab selectedTab = Tab.Info;
@@ -73,27 +74,23 @@ namespace AppBlazor.Components
             templateName = TemplateName ?? string.Empty;
         }
 
-        private MultipartFormDataContent CreateMultipartFormDataContent(ByteArrayContent bgFileContent, string fileName, bool saveToDb)
+        private async Task HandleFileUpload(InputFileChangeEventArgs e)
         {
-            var content = new MultipartFormDataContent
+            var file = e.File;
+            if (file != null)
             {
-                { bgFileContent, "bgFile", fileName }
-            };
-
-            OptionsDto optionsDto = new()
-            {
-                TicketHandling = TicketHandling,
-                CustomTextElementsJson = System.Text.Json.JsonSerializer.Serialize(CustomTexts),
-                Name = templateName,
-                SaveToDb = saveToDb
-            };
-
-            AddPropertiesToContent(optionsDto.TicketHandling, content, "TicketHandling");
-            content.Add(new StringContent(optionsDto.CustomTextElementsJson, Encoding.UTF8, "application/json"), "CustomTextElementsJson");
-            content.Add(new StringContent(optionsDto.Name), "Name");
-            content.Add(new StringContent(optionsDto.SaveToDb.ToString().ToLower()), "SaveToDb");
-
-            return content;
+                await using var stream = file.OpenReadStream();
+                byte[] buffer = new byte[file.Size];
+                await stream.ReadAsync(buffer);
+                bgFileContent = new ByteArrayContent(buffer);
+                bgFileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+                bgFileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
+                {
+                    Name = "\"bgFile\"",
+                    FileName = $"\"{file.Name}\""
+                };
+                ErrorMessage = string.Empty;
+            }
         }
 
         private static MultipartFormDataContent CreateMultipartFormDataContent(ByteArrayContent bgFileContent, string fileName, Dictionary<string, string> additionalFields)
@@ -104,7 +101,7 @@ namespace AppBlazor.Components
             };
 
             foreach (var field in additionalFields)
-                {
+            {
                 content.Add(new StringContent(field.Value, Encoding.UTF8, "application/json"), field.Key);
             }
 
@@ -131,12 +128,7 @@ namespace AppBlazor.Components
                 var statusCode = response.StatusCode;
                 var errorContent = await response.Content.ReadAsStringAsync();
                 ErrorMessage = $"Operation failed: {statusCode} - {(string.IsNullOrEmpty(errorContent) ? "No additional error information provided." : errorContent)}";
-        }
-
-        private void HandleFileUploaded(ByteArrayContent fileContent)
-        {
-            bgFileContent = fileContent;
-            ErrorMessage = null;
+            }
         }
 
         private void SetErrorMessageAndResetLoading(string message)
@@ -158,8 +150,8 @@ namespace AppBlazor.Components
             if (shouldFocusOnError && JSRuntime != null && !string.IsNullOrEmpty(currentFocusElementId))
             {
                 shouldFocusOnError = false;
-                    await JSRuntime.InvokeVoidAsync("focusOnElementById", currentFocusElementId);
-                }
+                await JSRuntime.InvokeVoidAsync("focusOnElementById", currentFocusElementId);
+            }
         }
 
         private async Task CreatePdf(bool saveToDb)

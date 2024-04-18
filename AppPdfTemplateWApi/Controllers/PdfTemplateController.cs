@@ -226,35 +226,5 @@ namespace AppPdfTemplateWApi.Controllers
                 return StatusCode(500, "An internal server error occurred during warm-up.");
             }
         }
-
-        private bool TryDeserializeCustomTextElements(string? json, out List<CustomTextElement>? elements) // TODO: move into service
-        {
-            elements = null;
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return true;
-            }
-            try
-            {
-                var settings = new JsonSerializerSettings
-                {
-                    TypeNameHandling = TypeNameHandling.None,
-                    Error = (sender, args) =>
-                    {
-                        _logger.LogError(args.ErrorContext.Error, "Deserialization error.");
-                        args.ErrorContext.Handled = true;
-                    }
-                };
-
-                elements = JsonConvert.DeserializeObject<List<CustomTextElement>>(json, settings);
-                elements ??= new List<CustomTextElement>();
-                return true;
-            }
-            catch (JsonSerializationException ex)
-            {
-                _logger.LogError(ex, "Error deserializing customTextElementsJson: {ErrorMessage}", ex.Message);
-                return false;
-            }
-        }
     }
 }

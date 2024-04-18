@@ -577,6 +577,51 @@ namespace Services
             return fullPath;
         }
 
+        public TicketHandling DeserializeTextElements(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return new TicketHandling();
+            }
+
+            try
+            {
+                var settings = new JsonSerializerSettings
+                {
+                    TypeNameHandling = TypeNameHandling.None,
+                    Error = (sender, args) =>
+                    {
+                        _logger.LogError(args.ErrorContext.Error, "Deserialization error.");
+                        args.ErrorContext.Handled = true;
+                    }
+                };
+
+                var elements = JsonConvert.DeserializeObject<TicketHandling>(json, settings);
+                return elements ?? new TicketHandling();
+            }
+            catch (JsonSerializationException ex)
+            {
+                _logger.LogError(ex, "Error deserializing ticketHandlingJson: {ErrorMessage}", ex.Message);
+                return new TicketHandling();
+            }
+        }
+
+        private static string DetermineTicketType(TicketHandling ticketHandling)
+        {
+            if (!ticketHandling.TextConfigs["ChairNr"].Style.Include && ticketHandling.TextConfigs["Section"].Style.Include)
+            {
+                return "Onumrerad";
+            }
+            else if (!ticketHandling.TextConfigs["ChairRow"].Style.Include && !ticketHandling.TextConfigs["Section"].Style.Include)
+            {
+                return "Presentkort";
+            }
+            else
+            {
+                return "Numrerad";
+            }
+        }
+
         #endregion Helper methods
     }
 }

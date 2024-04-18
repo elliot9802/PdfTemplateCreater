@@ -11,9 +11,9 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace DbContext.Migrations.SqlServerMigrations
 {
-    [DbContext(typeof(csMainDbContext.SqlServerDbContext))]
-    [Migration("20231116122759_mi_test")]
-    partial class mi_test
+    [DbContext(typeof(TicketTemplateDbContext.SqlServerDbContext))]
+    [Migration("20240405143629_initial_migration")]
+    partial class initial_migration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,25 +25,120 @@ namespace DbContext.Migrations.SqlServerMigrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("DbModels.FileDescription", b =>
+                {
+                    b.Property<int>("FileStorageId")
+                        .HasColumnType("int")
+                        .HasColumnName("FileStorageID");
+
+                    b.Property<int?>("ChildFileStorageId")
+                        .HasColumnType("int")
+                        .HasColumnName("ChildFileStorageID");
+
+                    b.Property<DateTime?>("CreateTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<int?>("CreateUser")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("FileCategoryId")
+                        .HasColumnType("int")
+                        .HasColumnName("FileCategoryID");
+
+                    b.Property<int?>("FileSize")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FileTypeId")
+                        .HasColumnType("int")
+                        .HasColumnName("FileTypeID");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdateTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<int?>("UpdateUser")
+                        .HasColumnType("int");
+
+                    b.Property<byte?>("ValidState")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("FileStorageId");
+
+                    b.HasIndex("ChildFileStorageId");
+
+                    b.ToTable("FileDescription");
+                });
+
+            modelBuilder.Entity("DbModels.FileStorage", b =>
+                {
+                    b.Property<int>("FileStorageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("FileStorageID");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("FileStorageId"));
+
+                    b.Property<DateTime?>("CreateTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<int?>("CreateUser")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTime?>("UpdateTime")
+                        .HasColumnType("datetime");
+
+                    b.Property<int?>("UpdateUser")
+                        .HasColumnType("int");
+
+                    b.Property<byte?>("ValidState")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("FileStorageId");
+
+                    b.ToTable("FileStorage");
+                });
+
             modelBuilder.Entity("DbModels.TicketTemplateDbM", b =>
                 {
                     b.Property<Guid>("TicketTemplateId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("FileStorageID")
+                        .IsRequired()
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("ShowEventInfo")
                         .HasColumnType("int");
 
                     b.Property<string>("TicketsHandlingJson")
                         .IsRequired()
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("TicketTemplateId");
+
+                    b.HasIndex("FileStorageID");
 
                     b.ToTable("TicketTemplate");
                 });
 
-            modelBuilder.Entity("DbModels.TicketsDataDto", b =>
+            modelBuilder.Entity("DbModels.TicketsDataView", b =>
                 {
                     b.Property<int?>("ArtNotText")
                         .HasColumnType("int");
@@ -79,6 +174,9 @@ namespace DbContext.Migrations.SqlServerMigrations
 
                     b.Property<bool>("StrukturArtikel")
                         .HasColumnType("bit");
+
+                    b.Property<Guid>("WebbUid")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Webbcode")
                         .IsRequired()
@@ -151,6 +249,41 @@ namespace DbContext.Migrations.SqlServerMigrations
                     b.ToTable((string)null);
 
                     b.ToView("Vy_ShowTickets", "dbo");
+                });
+
+            modelBuilder.Entity("DbModels.FileDescription", b =>
+                {
+                    b.HasOne("DbModels.FileDescription", "ChildFileStorage")
+                        .WithMany("InverseChildFileStorage")
+                        .HasForeignKey("ChildFileStorageId");
+
+                    b.HasOne("DbModels.FileStorage", "FileStorage")
+                        .WithMany("FileDescriptions")
+                        .HasForeignKey("FileStorageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChildFileStorage");
+
+                    b.Navigation("FileStorage");
+                });
+
+            modelBuilder.Entity("DbModels.TicketTemplateDbM", b =>
+                {
+                    b.HasOne("DbModels.FileStorage", null)
+                        .WithMany()
+                        .HasForeignKey("FileStorageID")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("DbModels.FileDescription", b =>
+                {
+                    b.Navigation("InverseChildFileStorage");
+                });
+
+            modelBuilder.Entity("DbModels.FileStorage", b =>
+                {
+                    b.Navigation("FileDescriptions");
                 });
 #pragma warning restore 612, 618
         }

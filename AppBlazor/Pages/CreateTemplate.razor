@@ -1,8 +1,5 @@
 ﻿@page "/create-template"
-@inject HttpClient HttpClient
-@inject NavigationManager NavigationManager
 @using AppBlazor.Components
-@using System.Net.Http.Headers
 
 <div class="create-template mb-0">
     <!-- Ticket Type Selection Dropdown -->
@@ -11,7 +8,7 @@
         <div class="info-text">
             Kom igång snabbt med en av våra fördefinierade mallar, som du enkelt kan anpassa ytterligare för att passa just dina behov.
         </div>
-        <select class="form-select" id="ticketTypeSelect" @onchange="OnTicketTypeChanged">
+        <select class="form-select" id="ticketTypeSelect" @onchange="OnTicketTypeChanged" value="@selectedTicketType">
             <option value="">Ingen vald</option>
             <option value="Numrerad">Numrerad</option>
             <option value="Onumrerad">Onumrerad</option>

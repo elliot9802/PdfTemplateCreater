@@ -1,68 +1,68 @@
-﻿@using System.Reflection
+﻿@using Models
+@using System.Globalization
 
-@if (TicketHandling != null && PropertyGroups != null)
+@if (TicketHandling?.TextConfigs != null)
 {
-    <div class="scrollable-container customization-container">
-        <h2>Hantera strukturerad data</h2>
+    <div class="scrollable-container customization-container bg-light border p-3">
+        <h2 class="mb-3">Hantera Mall Text Element</h2>
         <div class="row">
-            @foreach (var group in PropertyGroups)
+            @foreach (var config in TicketHandling.TextConfigs)
             {
-                <div class="col-md-6 col-lg-4">
-                    <div class="form-group">
-                        <input type="checkbox" class="custom-control-input"
-                               checked="@Convert.ToBoolean(group.IncludeProperty?.GetValue(TicketHandling))"
-                        @onchange="e => HandleCheckboxChange(e, group.IncludeProperty)"
-                               id="@group.IncludeProperty?.Name" />
-                        <label class="custom-control-label">@GetDisplayName(group.IncludeProperty?.Name ?? string.Empty)</label>
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input"
+                               checked="@config.Value.Style.Include"
+                        @onchange="e => HandleIncludeChange(e, config.Value.Style)"
+                               id="@($"include-{config.Key}")" />
+                        <label class="form-check-label" for="@($"include-{config.Key}")">
+                            @config.Key (@config.Value.DataViewPropertyName)
+                        </label>
                     </div>
 
-                    @if (Convert.ToBoolean(group.IncludeProperty?.GetValue(TicketHandling)))
+                    @if (config.Value.Style.Include)
                     {
-                        foreach (var positionProperty in group.PositionProperties ?? new List<PropertyInfo>())
-                        {
-                            <div class="position-input-group">
-                                <label>@GetDisplayName(positionProperty.Name)</label>
-                                <input type="number" class="form-control form-control-sm mb-2"
-                                       value="@positionProperty.GetValue(TicketHandling)?.ToString()"
-                                @oninput="@(e => HandlePositionChange(e, positionProperty))" />
+                        <div class="mt-2">
+                            <div class="form-floating mb-3">
+                                <input type="number" class="form-control form-control-sm"
+                                       value="@(config.Value.Style.PositionX?.ToString(CultureInfo.InvariantCulture) ?? "")"
+                                @oninput="e => HandlePositionChange(e, config.Value.Style, true)" />
+                                <label class="form-label">X Position</label>
                             </div>
-                        }
+                            <div class="form-floating mb-3">
+                                <input type="number" class="form-control form-control-sm"
+                                       value="@(config.Value.Style.PositionY?.ToString(CultureInfo.InvariantCulture) ?? "")"
+                                @oninput="e => HandlePositionChange(e, config.Value.Style, false)" />
+                                <label>Y Position</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <input type="number" class="form-control form-control-sm"
+                                       value="@(config.Value.Style.FontSize?.ToString(CultureInfo.InvariantCulture) ?? "8")"
+                                @oninput="e => HandleFontSizeChange(e, config.Value.Style)" />
+                                <label>Font Size</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <input type="color" class="form-control form-control-sm"
+                                       value="@config.Value.Style.FontColor"
+                                @oninput="e => HandleFontColorChange(e, config.Value.Style)" />
+                                <label>Font Color</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <select class="form-select form-control-sm" @onchange="e => HandleFontStyleChange(e, config.Value.Style)"
+                                        id="@($"fontStyle-{config.Key}")">
+                                    @foreach (FontStyle style in Enum.GetValues(typeof(FontStyle)))
+                                    {
+                                        <option value="@style" selected="@(style == config.Value.Style.FontStyle)">
+                                            @style
+                                        </option>
+
+                                    }
+                                </select>
+                                <label for="@($"fontStyle-{config.Key}")">Font Style</label>
+                            </div>
+                        </div>
                     }
                 </div>
             }
-        </div>
-        <!-- Additional Options -->
-        <div class="row additional-options">
-            <div class="col-sm-4">
-                <div class="form-group">
-                    <input type="checkbox" @bind="TicketHandling.AddScissorsLine" id="AddScissorsLine" />
-                    <label for="AddScissorsLine">Add Scissors Line</label>
-                </div>
-            </div>
-            <div class="col-sm-4">
-                <div class="form-group">
-                    <input type="checkbox" @bind="TicketHandling.FlipBarcode" id="FlipBarcode" />
-                    <label for="FlipBarcode">Flip Barcode</label>
-                </div>
-            </div>
-            <div class="col-sm-4">
-                <div class="form-group">
-                    <input type="checkbox" @bind="TicketHandling.UseQRCode" id="UseQRCode" />
-                    <label for="UseQRCode">Use QR Code</label>
-                </div>
-            </div>
-            <div class="col-sm-4">
-                <div class="form-group">
-                    <div class="position-input-group">
-                        <label for="BarcodePositionX">BarcodePositionX</label>
-                        <input type="number" class="form-control form-control-sm mb-2"
-                        @bind="TicketHandling.BarcodePositionX" id="BarcodePositionX" placeholder="825" />
-                        <label for="BarcodePositionY">BarcodePositionY</label>
-                        <input type="number" class="form-control form-control-sm mb-2"
-                        @bind="TicketHandling.BarcodePositionY" id="BarcodePositionY" placeholder="320" />
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 }

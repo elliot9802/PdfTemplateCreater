@@ -10,7 +10,6 @@ builder.Services.AddControllers();
 
 builder.Services.AddScoped<TemplateRepository>();
 builder.Services.AddScoped<IPdfTemplateService, PdfTemplateService>();
-builder.Services.AddScoped<IFileService, FileService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

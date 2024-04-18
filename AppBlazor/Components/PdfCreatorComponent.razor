@@ -1,5 +1,4 @@
 ﻿@using AppBlazor.Components
-@using System.Net.Http.Headers
 @using Services
 @inject HttpClient HttpClient
 @inject NavigationManager NavigationManager
@@ -63,7 +62,7 @@
     }
 
     <!-- Action Buttons -->
-    <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm spcl-btn" disabled="@isPreviewLoading">
+    <button @onclick="() => CreatePdf(false)" class="btn btn-secondary btn-sm" disabled="@isPreviewLoading">
         @if (isPreviewLoading)
         {
             <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -80,7 +79,7 @@
     </button>
     @if (IsEditMode)
     {
-        <button @onclick="UpdateTemplate" class="btn btn-success btn-sm spcl-btn" disabled="@isSaveLoading">
+        <button @onclick="UpdateTemplate" class="btn btn-success btn-sm ms-2" disabled="@isSaveLoading">
             @if (isSaveLoading)
             {
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -98,7 +97,7 @@
     }
     else
     {
-        <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm spcl-btn" disabled="@isSaveLoading">
+        <button @onclick="() => CreatePdf(true)" class="btn btn-success btn-sm ms-2" disabled="@isSaveLoading">
             @if (isSaveLoading)
             {
                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>

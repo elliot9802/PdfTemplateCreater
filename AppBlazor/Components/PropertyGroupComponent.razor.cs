@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Models;
-using System.Reflection;
-using System.Text.RegularExpressions;
 
 namespace AppBlazor.Components
 {
@@ -10,79 +8,44 @@ namespace AppBlazor.Components
         [Parameter]
         public TicketHandling? TicketHandling { get; set; }
 
-        public List<PropertyGroup>? PropertyGroups { get; set; } = new();
-
-        protected override void OnParametersSet()
+        private void HandleIncludeChange(ChangeEventArgs e, TextElement style)
         {
-            PropertyGroups = GetPropertyGroups();
+            if (bool.TryParse(e.Value?.ToString(), out var include))
+            {
+                style.Include = include;
+            }
         }
 
-        private static List<PropertyGroup> GetPropertyGroups()
+        private void HandlePositionChange(ChangeEventArgs e, TextElement style, bool isX)
         {
-            var groups = new List<PropertyGroup>();
-            var includeProperties = typeof(TicketHandling).GetProperties()
-                .Where(p => p.PropertyType == typeof(bool) && p.Name.StartsWith("Include"));
-
-            foreach (var includeProperty in includeProperties)
+            if (float.TryParse(e.Value?.ToString(), out var position))
             {
-                string suffix = includeProperty.Name["Include".Length..];
-                List<PropertyInfo> positionProperties;
-                if (suffix == "EventName" || suffix == "SubEventName")
-                {
-                    positionProperties = typeof(TicketHandling).GetProperties()
-                        .Where(p => p.Name.StartsWith(suffix) && (p.Name.EndsWith("PositionX") || p.Name.EndsWith("PositionY")))
-                        .ToList();
-                }
-                else if (suffix == "BookingNr" || suffix == "WebBookingNr")
-                {
-                    positionProperties = typeof(TicketHandling).GetProperties()
-                        .Where(p => p.Name.StartsWith(suffix) && (p.Name.EndsWith("PositionX") || p.Name.EndsWith("PositionY")))
-                        .ToList();
-                }
+                if (isX)
+                    style.PositionX = position;
                 else
-                {
-                    positionProperties = typeof(TicketHandling).GetProperties()
-                        .Where(p => p.Name.EndsWith(suffix + "PositionX") || p.Name.EndsWith(suffix + "PositionY"))
-                        .ToList();
-                }
-
-                groups.Add(new PropertyGroup
-                {
-                    IncludeProperty = includeProperty,
-                    PositionProperties = positionProperties
-                });
+                    style.PositionY = position;
             }
-
-            return groups;
         }
 
-        private void HandleCheckboxChange(ChangeEventArgs e, PropertyInfo? propertyInfo)
+        private void HandleFontSizeChange(ChangeEventArgs e, TextElement style)
         {
-            if (propertyInfo is null) return;
-
-            if (bool.TryParse(e.Value?.ToString(), out bool isChecked))
+            if (float.TryParse(e.Value?.ToString(), out var fontSize))
             {
-                propertyInfo.SetValue(TicketHandling, isChecked);
+                style.FontSize = fontSize;
             }
         }
 
-        private void HandlePositionChange(ChangeEventArgs e, PropertyInfo propertyInfo)
+        private void HandleFontColorChange(ChangeEventArgs e, TextElement style)
         {
-            var inputValue = e.Value?.ToString();
-            if (string.IsNullOrEmpty(inputValue))
-            {
-                propertyInfo.SetValue(TicketHandling, null);
-            }
-            else if (propertyInfo.PropertyType == typeof(bool) && bool.TryParse(inputValue, out bool boolValue))
-            {
-                propertyInfo.SetValue(TicketHandling, boolValue);
-            }
-            else if (propertyInfo.PropertyType == typeof(float?) && float.TryParse(inputValue, out float floatValue))
-            {
-                propertyInfo.SetValue(TicketHandling, floatValue);
-            }
+            style.FontColor = e.Value?.ToString() ?? "#000000";
         }
 
-        private static string GetDisplayName(string propertyName) => Regex.Replace(propertyName, "(\\B[A-Z])", " $1");
+        private void HandleFontStyleChange(ChangeEventArgs e, TextElement style)
+        {
+            if (Enum.TryParse<FontStyle>(e.Value?.ToString(), out var fontStyle))
+            {
+                style.FontStyle = fontStyle;
+            }
+        }
     }
 }

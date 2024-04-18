@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using Models;
-using Models.DTO;
 using Newtonsoft.Json;
 using Services;
-using System.Reflection;
+using System.Net.Http.Headers;
 using System.Text;
 
 namespace AppBlazor.Components
@@ -15,7 +15,7 @@ namespace AppBlazor.Components
         [Parameter] public bool IsEditMode { get; set; }
         [Parameter] public TicketHandling TicketHandling { get; set; } = new();
         [Parameter] public List<CustomTextElement> CustomTexts { get; set; } = new();
-        [Parameter] public Guid? TemplateId { get; set; }
+        [Parameter] public Guid TemplateId { get; set; }
         [Parameter] public string? TemplateName { get; set; }
         [Parameter] public int? ShowEventInfo { get; set; }
 
@@ -94,25 +94,28 @@ namespace AppBlazor.Components
             return content;
         }
 
-        private static void AddPropertiesToContent(object obj, MultipartFormDataContent content, string prefix)
+        private static MultipartFormDataContent CreateMultipartFormDataContent(ByteArrayContent bgFileContent, string fileName, Dictionary<string, string> additionalFields)
         {
-            foreach (PropertyInfo property in obj.GetType().GetProperties())
+            var content = new MultipartFormDataContent
             {
-                object? value = property.GetValue(obj, null);
-                if (value != null)
+                { bgFileContent, "bgFile", fileName }
+            };
+
+            foreach (var field in additionalFields)
                 {
-                    string valueAsString = value.ToString() ?? string.Empty;
-                    content.Add(new StringContent(valueAsString, Encoding.UTF8), $"{prefix}.{property.Name}");
-                }
+                content.Add(new StringContent(field.Value, Encoding.UTF8, "application/json"), field.Key);
             }
+
+            return content;
         }
 
-        private async Task HandleResponse(HttpResponseMessage response, bool saveToDb)
+        private async Task HandleHttpResponse(HttpResponseMessage response, bool saveToDb)
         {
             if (response.IsSuccessStatusCode)
             {
                 if (saveToDb)
                 {
+                    SuccessMessage = "Mall sparad!";
                     await OnSave.InvokeAsync(true);
                 }
                 else
@@ -123,8 +126,9 @@ namespace AppBlazor.Components
             }
             else
             {
-                ErrorMessage = "Failed to generate PDF: " + await response.Content.ReadAsStringAsync();
-            }
+                var statusCode = response.StatusCode;
+                var errorContent = await response.Content.ReadAsStringAsync();
+                ErrorMessage = $"Operation failed: {statusCode} - {(string.IsNullOrEmpty(errorContent) ? "No additional error information provided." : errorContent)}";
         }
 
         private void HandleFileUploaded(ByteArrayContent fileContent)
@@ -152,15 +156,8 @@ namespace AppBlazor.Components
             if (shouldFocusOnError && JSRuntime != null && !string.IsNullOrEmpty(currentFocusElementId))
             {
                 shouldFocusOnError = false;
-                try
-                {
                     await JSRuntime.InvokeVoidAsync("focusOnElementById", currentFocusElementId);
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error invoking JS for focusing on file input: {ex.Message}");
-                }
-            }
         }
 
         private async Task CreatePdf(bool saveToDb)
@@ -176,26 +173,27 @@ namespace AppBlazor.Components
                 return;
             }
 
-            var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
-            if (string.IsNullOrEmpty(fileName))
-            {
-                SetErrorMessageAndResetLoading("Filnamnet angavs inte.");
-                return;
-            }
-
             if (saveToDb && string.IsNullOrWhiteSpace(templateName))
             {
                 SetErrorMessageAndResetLoading("Vänligen välj ett namn för din mall innan du fortsätter");
                 return;
             }
 
-            var requestUri = ConfigService!.GetApiUrl($"/api/PdfTemplate/CreateTemplate?saveToDb={saveToDb}");
-            var content = CreateMultipartFormDataContent(bgFileContent, fileName, saveToDb);
+            var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"') ?? "defaultFileName";
+
+            var additionalFields = new Dictionary<string, string>
+            {
+                { "TicketHandlingJson", System.Text.Json.JsonSerializer.Serialize(TicketHandling) },
+                { "CustomTextElementsJson", System.Text.Json.JsonSerializer.Serialize(CustomTexts) },
+                { "Name", templateName },
+                { "SaveToDb", saveToDb.ToString().ToLower() }
+            };
+            var content = CreateMultipartFormDataContent(bgFileContent, fileName, additionalFields);
 
             try
             {
-                var response = await HttpClient.PostAsync(requestUri, content);
-                await HandleResponse(response, saveToDb);
+                var response = await HttpClient.PostAsync(ConfigService.GetApiUrl($"/api/PdfTemplate/CreateTemplate?saveToDb={saveToDb}"), content);
+                await HandleHttpResponse(response, saveToDb);
             }
             catch (Exception ex)
             {
@@ -214,49 +212,32 @@ namespace AppBlazor.Components
             ErrorMessage = string.Empty;
             SuccessMessage = string.Empty;
 
-            if (!TemplateId.HasValue || !ShowEventInfo.HasValue)
-            {
-                Console.WriteLine("Template ID and/or Show Event Info are null.");
-                isSaveLoading = false;
-                return;
-            }
-
             if (bgFileContent == null)
             {
-                ErrorMessage = "Please select a background file before proceeding";
+                SetErrorMessageAndResetLoading("Vänligen välj en bakgrundsbild innan du fortsätter");
                 return;
             }
-            var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"');
-            if (string.IsNullOrEmpty(fileName))
+            if (string.IsNullOrWhiteSpace(templateName))
             {
-                ErrorMessage = "The file name was not provided.";
+                SetErrorMessageAndResetLoading("Vänligen välj ett namn för din mall innan du fortsätter");
                 return;
             }
 
-            var formData = new MultipartFormDataContent
+            var fileName = bgFileContent.Headers?.ContentDisposition?.FileName?.Trim('"') ?? "defaultFileName";
+
+            var additionalFields = new Dictionary<string, string>
             {
-                { new StringContent(TemplateId.Value.ToString()), nameof(TemplateCUdto.TicketTemplateId) },
-                { new StringContent(templateName), nameof(TemplateCUdto.Name) },
-                { new StringContent(JsonConvert.SerializeObject(TicketHandling)), nameof(TemplateCUdto.TicketHandlingJson) },
-                { bgFileContent, "bgFile", fileName }
+                { "TicketTemplateId", TemplateId.ToString() },
+                { "Name", templateName },
+                { "TicketHandlingJson", JsonConvert.SerializeObject(TicketHandling) }
             };
+
+            var content = CreateMultipartFormDataContent(bgFileContent, fileName, additionalFields);
 
             try
             {
-                var requestUri = ConfigService!.GetApiUrl("/api/PdfTemplate/UpdateTemplate");
-                var response = await HttpClient.SendAsync(new HttpRequestMessage(HttpMethod.Put, requestUri) { Content = formData });
-
-                if (response.IsSuccessStatusCode)
-                {
-                    SuccessMessage = "Template successfully updated!";
-                    await OnSave.InvokeAsync(true);
-                }
-                else
-                {
-                    var statusCode = response.StatusCode;
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    ErrorMessage = $"Failed to update the template: {statusCode} - {(string.IsNullOrEmpty(errorContent) ? "No additional error information provided." : errorContent)}";
-                }
+                var response = await HttpClient.PutAsync(ConfigService.GetApiUrl("/api/PdfTemplate/UpdateTemplate"), content);
+                await HandleHttpResponse(response, true);
             }
             catch (HttpRequestException httpException)
             {

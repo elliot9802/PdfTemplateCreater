@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
-using Models;
+using Models.DTO;
 using Newtonsoft.Json;
 using Services;
 
@@ -8,14 +8,14 @@ namespace AppBlazor.Pages
     public partial class GetTemplate
     {
         // Dependency Injection Properties
-        private ConfigService? _configService;
+        [Inject]
+        public ConfigService ConfigService { get; set; } = default!;
 
         [Inject]
-        public ConfigService? ConfigService
-        {
-            get => _configService ?? throw new InvalidOperationException("ConfigService is not configured.");
-            set => _configService = value;
-        }
+        public HttpClient HttpClient { get; set; } = default!;
+
+        [Inject]
+        public NavigationManager NavigationManager { get; set; } = default!;
 
         // Component State Properties
         private List<TemplateCUdto>? templates;
@@ -29,6 +29,7 @@ namespace AppBlazor.Pages
         private int? selectedShowEventInfo;
 
         private Guid? selectedTemplateId;
+        public int SelectKey { get; set; }
 
         public string? SuccessMessage { get; set; }
         public string? ErrorMessage { get; set; } = string.Empty;
@@ -89,6 +90,7 @@ namespace AppBlazor.Pages
             {
                 var jsonString = await response.Content.ReadAsStringAsync();
                 templates = JsonConvert.DeserializeObject<List<TemplateCUdto>>(jsonString);
+                SelectKey++;
             }
             else
             {

@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Models;
 using Models.DTO;
-using Newtonsoft.Json;
 using Services;
 
 namespace AppPdfTemplateWApi.Controllers
@@ -20,18 +18,59 @@ namespace AppPdfTemplateWApi.Controllers
             _pdfService = pdfTemplateService ?? throw new ArgumentNullException(nameof(pdfTemplateService));
         }
 
+        //POST: api/PdfTemplate/CreateCombinedPdf?webbUid={webbUid}&showEventInfo={showEventInfo}
+        [HttpPost]
+        public async Task<IActionResult> CreateCombinedPdf(Guid webbUid, int showEventInfo)
+        {
+            if (webbUid == Guid.Empty || showEventInfo <= 0)
+            {
+                _logger.LogWarning("CreateCombinedPdf called with invalid parameters. WebbUid: {WebbUid}, ShowEventInfo: {ShowEventInfo}", webbUid, showEventInfo);
+                return BadRequest("Invalid request parameters.");
+            }
+
+            try
+            {
+                var pdfBytes = await _pdfService.CreateCombinedPdfAsync(webbUid, showEventInfo);
+                return File(pdfBytes, "application/pdf", $"Tickets_{webbUid}.pdf");
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogError(ex, "Error creating combined PDF due to invalid argument: {ErrorMessage}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                _logger.LogWarning(ex, "Specified data not found: {ErrorMessage}", ex.Message);
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating combined PDF: {ErrorMessage}", ex.Message);
+                return StatusCode(500, "An internal server error occurred.");
+            }
+        }
+
         //POST: api/PdfTemplate/CreateTemplate?ticketId={ticketId}&saveToDb={saveToDb}
         [HttpPost]
         public async Task<IActionResult> CreateTemplate([FromForm] OptionsDto optionsDto, IFormFile bgFile)
         {
             _logger.LogInformation("Processing template creation, Name: {Name}, Save to DB: {SaveToDb}", optionsDto.Name, optionsDto.SaveToDb);
-
-            if (!TryDeserializeCustomTextElements(optionsDto.CustomTextElementsJson, out var customTextElements))
+            if (optionsDto.SaveToDb && string.IsNullOrWhiteSpace(optionsDto.Name))
             {
-                _logger.LogWarning("Invalid format for custom text elements.");
-                return BadRequest("Invalid format for custom text elements.");
+                _logger.LogError("Template name is required when saving to the database.");
+                return BadRequest("Template name is required when saving to the database.");
             }
-            optionsDto.TicketHandling.CustomTextElements = customTextElements ?? new List<CustomTextElement>();
+            //var customTextElements = _pdfService.DeserializeTextElements(optionsDto.CustomTextElementsJson);
+            //if (customTextElements == null)
+            //{
+            //    _logger.LogWarning("Invalid format for custom text elements.");
+            //    return BadRequest("Invalid format for custom text elements.");
+            //}
+            //optionsDto.TicketHandling.CustomTextElements = customTextElements;
+
+            //var customTextElements = _pdfService.DeserializeTextElements(optionsDto.CustomTextElementsJson);
+            //var ticketHandling = JsonConvert.DeserializeObject<TicketHandling>(optionsDto.TicketHandlingJson) ?? new TicketHandling();
+            var ticketHandling = _pdfService.DeserializeTextElements(optionsDto.TicketHandlingJson);
 
             if (bgFile == null || bgFile.Length == 0)
             {
@@ -48,7 +87,7 @@ namespace AppPdfTemplateWApi.Controllers
 
             try
             {
-                var pdfBytes = await _pdfService.CreatePdfAsync(optionsDto.TicketHandling, bgFileData, bgFile.FileName, optionsDto.Name, optionsDto.SaveToDb);
+                var pdfBytes = await _pdfService.CreatePdfAsync(ticketHandling, bgFileData, bgFile.FileName, optionsDto.Name, optionsDto.SaveToDb);
                 return optionsDto.SaveToDb ? Ok("Template created and saved to database.") : File(pdfBytes, "application/pdf", $"{Guid.NewGuid()}.pdf");
             }
             catch (Exception ex)

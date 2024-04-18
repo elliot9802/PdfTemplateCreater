@@ -8,19 +8,24 @@ namespace AppBlazor.Pages
     public partial class CreateTemplate
     {
         // Dependency Injection Properties
-        private ConfigService? _configService;
+        [Inject]
+        public ConfigService ConfigService { get; set; } = default!;
 
         [Inject]
-        public ConfigService? ConfigService
-        {
-            get => _configService ?? throw new InvalidOperationException("ConfigService is not configured.");
-            set => _configService = value;
-        }
+        public HttpClient HttpClient { get; set; } = default!;
+
+        [Inject]
+        public NavigationManager NavigationManager { get; set; } = default!;
+
+        [Inject]
+        public TicketHandlingService TicketService { get; set; } = default!;
 
         // Component State Properties
         private TicketHandling ticketHandling = new();
 
         private ModalsComponent? successModal;
+
+        private string selectedTicketType = string.Empty;
 
         private string? pdfBase64;
         public string? ErrorMessage { get; set; }
@@ -31,6 +36,7 @@ namespace AppBlazor.Pages
             ErrorMessage = null;
             pdfBase64 = null;
             ticketHandling = new TicketHandling();
+            selectedTicketType = "";
         }
 
         protected override void OnInitialized()
@@ -41,13 +47,13 @@ namespace AppBlazor.Pages
 
         private void OnTicketTypeChanged(ChangeEventArgs e)
         {
-            var selectedTicketType = e.Value?.ToString();
+            selectedTicketType = e.Value?.ToString() ?? string.Empty;
 
             ticketHandling = selectedTicketType switch
             {
-                "Numrerad" => TicketHandling.CreateNumreradTicketHandling(),
-                "Onumrerad" => TicketHandling.CreateOnumreradTicketHandling(),
-                "Presentkort" => TicketHandling.CreatePresentkortTicketHandling(),
+                "Numrerad" => TicketService.CreateNumreradTicketHandling(),
+                "Onumrerad" => TicketService.CreateOnumreradTicketHandling(),
+                "Presentkort" => TicketService.CreatePresentkortTicketHandling(),
                 _ => new TicketHandling(),
             };
         }

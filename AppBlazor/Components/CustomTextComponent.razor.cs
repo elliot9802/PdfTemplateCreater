@@ -6,24 +6,25 @@ namespace AppBlazor.Components
 {
     public partial class CustomTextComponent
     {
-        // Parameters and Properties
-        [Parameter]
-        public List<CustomTextElement> CustomTexts { get; set; } = new();
-
+        // Dependency Injection Properties
         [Inject]
         private IJSRuntime? JSRuntime { get; set; }
+
+        // Component State Properties
+        [Parameter]
+        public List<CustomTextElement> CustomTexts { get; set; } = new();
 
         public List<CustomTextElement> TempCustomTexts { get; set; } = new();
 
         private readonly List<CustomTextElement> predefinedTexts = new()
-    {
-        new("- Köpt biljett återlöses ej -", 120, 265, 8, null),
-        new("Serviceavgift", 250, 185, 8, null),
-        new("Sektion", 398, 185, 9, "#7a7979"),
-        new("Plats", 640, 185, 9, "#7a7979"),
-        new("Rad", 580, 185, 9, "#7a7979"),
-        new("Ingång", 788, 185, 9, "#7a7979")
-    };
+        {
+            new("- Köpt biljett återlöses ej -", 120, 265, 8, null),
+            new("Serviceavgift", 250, 185, 8, null),
+            new("Sektion", 398, 185, 9, "#7a7979"),
+            new("Plats", 680, 185, 9, "#7a7979"),
+            new("Rad", 580, 185, 9, "#7a7979"),
+            new("Ingång", 788, 185, 9, "#7a7979")
+        };
 
         private bool RequiresScrollAndFocus { get; set; }
         private string? ElementToFocus { get; set; }
@@ -40,11 +41,12 @@ namespace AppBlazor.Components
                     existingText.PositionX = customText.PositionX;
                     existingText.PositionY = customText.PositionY;
                     existingText.FontSize = customText.FontSize;
-                    existingText.Color = customText.Color;
+                    existingText.FontStyle = customText.FontStyle;
+                    existingText.FontColor = customText.FontColor;
                 }
                 else
                 {
-                    CustomTexts.Add(new CustomTextElement(customText.Text, customText.PositionX, customText.PositionY, customText.FontSize, customText.Color));
+                    CustomTexts.Add(new CustomTextElement(customText.Text, customText.PositionX, customText.PositionY, customText.FontSize, customText.FontColor, customText.FontStyle));
                 }
 
                 TempCustomTexts.RemoveAll(ct => ct.CustomTextId == customText.CustomTextId);
@@ -57,7 +59,7 @@ namespace AppBlazor.Components
             {
                 if (!CustomTexts.Exists(ct => ct.Text == predef.Text))
                 {
-                    CustomTexts.Add(new CustomTextElement(predef.Text, predef.PositionX, predef.PositionY, predef.FontSize, predef.Color));
+                    CustomTexts.Add(new CustomTextElement(predef.Text, predef.PositionX, predef.PositionY, predef.FontSize, predef.FontColor, predef.FontStyle));
                 }
             });
         }
@@ -114,7 +116,8 @@ namespace AppBlazor.Components
                     PositionX = customText.PositionX,
                     PositionY = customText.PositionY,
                     FontSize = customText.FontSize,
-                    Color = customText.Color,
+                    FontStyle = customText.FontStyle,
+                    FontColor = customText.FontColor,
                     IsInEditMode = true
                 };
                 TempCustomTexts.Insert(0, existingTemp);
@@ -152,11 +155,11 @@ namespace AppBlazor.Components
         private static CustomTextElement? PredefinedToTempText(CustomTextElement? source)
         {
             if (source == null) return null;
-            return new(source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color) { IsInEditMode = true };
+            return new(source.Text, source.PositionX, source.PositionY, source.FontSize, source.FontColor, source.FontStyle) { IsInEditMode = true };
         }
 
         private static void UpdateTextElement(CustomTextElement target, CustomTextElement source) =>
-            (target.Text, target.PositionX, target.PositionY, target.FontSize, target.Color) =
-            (source.Text, source.PositionX, source.PositionY, source.FontSize, source.Color);
+            (target.Text, target.PositionX, target.PositionY, target.FontSize, target.FontStyle, target.FontColor) =
+            (source.Text, source.PositionX, source.PositionY, source.FontSize, source.FontStyle, source.FontColor);
     }
 }

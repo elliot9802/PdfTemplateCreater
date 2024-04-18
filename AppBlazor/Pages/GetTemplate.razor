@@ -1,10 +1,5 @@
 ﻿@page "/existing-templates"
-@using Models
-@using Services
 @using AppBlazor.Components
-@inject HttpClient HttpClient
-@inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
 <h3>Befintliga mallar</h3>
 
 @if (templates == null)
@@ -14,7 +9,7 @@
 else
 {
     <div class="my-2">
-        <select class="form-control" @onchange="OnTemplateSelected">
+        <select class="form-control" @key="SelectKey" @onchange="OnTemplateSelected">
             <option value="">Välj en mall</option>
             @foreach (var template in templates.OrderBy(t => t.ShowEventInfo))
             {

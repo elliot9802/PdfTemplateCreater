@@ -34,7 +34,7 @@
         public string? wbeventinfo { get; set; }
         public string Webbcode { get; set; }
         public string webbkod { get; set; }
-        public Guid WebbUid { get; set; }
+        public Guid? WebbUid { get; set; }
     }
 #pragma warning restore
 
@@ -52,6 +52,7 @@
         {
             var ticketData = new TicketsDataView
             {
+                ArtikelNr = random.Next(10000, 99999).ToString(),
                 BokningsNr = random.Next(10000, 99999),
                 Datum = DateTime.Now.AddDays(random.Next(-30, 30)).ToString("yyyy-MM-dd"),
                 datumStart = DateTime.Now.AddDays(random.Next(-30, 30)),

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Models;
+using Models.DTO;
 using Newtonsoft.Json;
 using Services;
 
@@ -8,14 +9,11 @@ namespace AppBlazor.Pages
     public partial class EditTemplate
     {
         // Dependency Injection Properties
-        private ConfigService? _configService;
+        [Inject]
+        public ConfigService ConfigService { get; set; } = default!;
 
         [Inject]
-        public ConfigService? ConfigService
-        {
-            get => _configService ?? throw new InvalidOperationException("ConfigService is not configured.");
-            set => _configService = value;
-        }
+        public HttpClient HttpClient { get; set; } = default!;
 
         // Component State Properties
         [Parameter]

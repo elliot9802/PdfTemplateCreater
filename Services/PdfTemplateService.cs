@@ -9,7 +9,6 @@ using Syncfusion.Drawing;
 using Syncfusion.Pdf;
 using Syncfusion.Pdf.Barcode;
 using Syncfusion.Pdf.Graphics;
-using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Services
@@ -37,6 +36,8 @@ namespace Services
         #region 1:1 calls
 
         public Task<int> SaveFileToDatabaseAsync(byte[] fileData, string description, string name) => _repo.SaveFileToDatabaseAsync(fileData, description, name);
+
+        public Task<IEnumerable<WebbUidInfo>> GetAllWebbUidsAsync() => _repo.GetAllWebbUidsAsync();
 
         public Task<byte[]> GetFileDataAsync(int? fileStorageID) => _repo.GetFileDataAsync(fileStorageID);
 
@@ -370,11 +371,11 @@ namespace Services
             foreach (var config in ticketHandling.TextConfigs.Select(configEntry => configEntry.Value))
             {
                 if (config.Style.Include)
-        {
+                {
                     var propertyInfo = ticketData.GetType().GetProperty(config.DataViewPropertyName);
                     var dataValue = propertyInfo?.GetValue(ticketData)?.ToString();
                     if (!string.IsNullOrEmpty(dataValue))
-            {
+                    {
                         PdfFont font = GetCustomFont(config.Style.FontSize, config.Style.FontStyle);
                         PdfBrush brush = GetCustomBrush(config.Style.FontColor);
                         PointF adjustedOrigin = new(

@@ -1,5 +1,5 @@
-﻿using DbModels;
-using Models;
+﻿using Models;
+using Models.DTO;
 
 namespace Services
 {
@@ -11,7 +11,11 @@ namespace Services
 
         Task<ITicketTemplate> DeleteTemplateAsync(Guid id);
 
+        TicketHandling DeserializeTextElements(string json);
+
         Task<byte[]> GeneratePredefinedPdfAsync(int showEventInfo);
+
+        Task<IEnumerable<WebbUidInfo>> GetAllWebbUidsAsync();
 
         Task<TemplateCUdto> GetTemplateByIdAsync(Guid ticketTemplateId);
 

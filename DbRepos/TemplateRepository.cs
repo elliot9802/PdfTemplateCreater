@@ -4,6 +4,7 @@ using DbModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Models;
+using Models.DTO;
 
 namespace DbRepos
 {
@@ -22,37 +23,21 @@ namespace DbRepos
 
         public async Task<ITicketTemplate> CreateTemplateAsync(TemplateCUdto _src)
         {
-            if (_src.TicketTemplateId.HasValue && _src.TicketTemplateId != Guid.Empty)
-                throw new ArgumentException($"{nameof(_src.TicketTemplateId)} must be null when creating a new object.");
+            await using var db = TicketTemplateDbContext.Create(_dbLogin);
 
-            try
+            var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => t.ShowEventInfo) ?? 0;
+            _src.ShowEventInfo = maxShowEventInfo + 1;
+
+            var newTicketTemplate = new TicketTemplateDbM(_src)
             {
-                await using var db = TicketTemplateDbContext.Create(_dbLogin);
+                ShowEventInfo = _src.ShowEventInfo
+            };
 
-                var maxShowEventInfo = await db.TicketTemplate.MaxAsync(t => t.ShowEventInfo) ?? 0;
-                _src.ShowEventInfo = maxShowEventInfo + 1;
+            await db.TicketTemplate.AddAsync(newTicketTemplate);
+            await db.SaveChangesAsync();
 
-                var newTicketTemplate = new TicketTemplateDbM(_src)
-                {
-                    ShowEventInfo = _src.ShowEventInfo
-                };
-
-                await db.TicketTemplate.AddAsync(newTicketTemplate);
-                await db.SaveChangesAsync();
-
-                _logger.LogInformation("New template created with ShowEventInfo {NewShowEventInfo}", newTicketTemplate.ShowEventInfo);
-                return newTicketTemplate;
-            }
-            catch (DbUpdateException dbEx)
-            {
-                _logger.LogError(dbEx, "Database update error in CreateTemplateAsync.");
-                throw new InvalidOperationException("Failed to create new template due to database update error.", dbEx);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in CreateTemplateAsync: {ErrorMessage}", ex.Message);
-                throw new InvalidOperationException("An unexpected error occurred while creating a new template.", ex);
-            }
+            _logger.LogInformation("New template created with ShowEventInfo {NewShowEventInfo}", newTicketTemplate.ShowEventInfo);
+            return newTicketTemplate;
         }
 
         public async Task<ITicketTemplate> DeleteTemplateAsync(Guid id)
@@ -217,6 +202,32 @@ namespace DbRepos
             return tickets;
         }
 
+        public async Task<IEnumerable<WebbUidInfo>> GetAllWebbUidsAsync()
+        {
+            await using var db = TicketTemplateDbContext.Create(_dbLogin);
+
+            // Query groups the entries by WebbUid, counts each group, orders them by count in descending order, and finally, selects the top 10 with the most entries.
+            var topWebbUids = await db.Vy_ShowTickets
+                .AsNoTracking()
+                .Where(ticket => ticket.WebbUid != null)
+                .GroupBy(ticket => new { ticket.WebbUid, ticket.namn })
+                .Select(group => new
+                {
+                    group.Key.WebbUid,
+                    group.Key.namn,
+                    Count = group.Count()
+                })
+                .OrderByDescending(x => x.Count)
+                .Take(10)
+                .ToListAsync();
+
+            return topWebbUids.ConvertAll(item => new WebbUidInfo
+            {
+                WebbUid = item.WebbUid,
+                Name = item.namn ?? "Unknown"
+            });
+        }
+
         public async Task<List<ITicketTemplate>> ReadTemplatesAsync()
         {
             try
@@ -252,6 +263,7 @@ namespace DbRepos
 
             int fileSize = fileData.Length;
             int fileStorageId = 0;
+            DateTime createTime = DateTime.Now;
 
             await using var db = TicketTemplateDbContext.Create(_dbLogin);
 
@@ -263,6 +275,10 @@ namespace DbRepos
 
                 try
                 {
+                    // manually setting filestorageid to +1 from max filestorageid, might be neccesary if Id keeps being set from old data
+                    //var maxId = await db.FileStorage.MaxAsync(f => (int?)f.FileStorageId) ?? 0;
+                    //fileStorageId = maxId + 1;
+
                     var existingFileDescription = await db.FileDescription
                                                 .FirstOrDefaultAsync(fd => fd.FileSize == fileSize && fd.FileTypeId == fileTypeId);
 
@@ -275,7 +291,9 @@ namespace DbRepos
                     {
                         var fileStorage = new FileStorage
                         {
-                            Data = fileData
+                            //FileStorageId = fileStorageId,
+                            Data = fileData,
+                            CreateTime = createTime
                         };
 
                         await db.FileStorage.AddAsync(fileStorage);
@@ -288,7 +306,7 @@ namespace DbRepos
                             FileCategoryId = 3,
                             Description = description,
                             Name = name,
-                            CreateTime = DateTime.Now,
+                            CreateTime = createTime,
                             FileSize = fileData.Length
                         };
 

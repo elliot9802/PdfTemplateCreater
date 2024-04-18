@@ -11,26 +11,28 @@ namespace AppBlazor.Components
 {
     public partial class PdfCreatorComponent
     {
+        // Dependency Injection Properties
+        [Inject]
+        public ConfigService ConfigService { get; set; } = default!;
+
+        [Inject]
+        public HttpClient HttpClient { get; set; } = default!;
+
+        [Inject]
+        public NavigationManager NavigationManager { get; set; } = default!;
+
+        [Inject]
+        private IJSRuntime JSRuntime { get; set; } = default!;
+
+        // Component State Properties
         [Parameter] public EventCallback<bool> OnSave { get; set; }
+
         [Parameter] public bool IsEditMode { get; set; }
         [Parameter] public TicketHandling TicketHandling { get; set; } = new();
         [Parameter] public List<CustomTextElement> CustomTexts { get; set; } = new();
         [Parameter] public Guid TemplateId { get; set; }
         [Parameter] public string? TemplateName { get; set; }
         [Parameter] public int? ShowEventInfo { get; set; }
-
-        // Dependency Injection Properties
-        private ConfigService? _configService;
-
-        [Inject]
-        public ConfigService? ConfigService
-        {
-            get => _configService ?? throw new InvalidOperationException("ConfigService is not configured.");
-            set => _configService = value;
-        }
-
-        [Inject]
-        private IJSRuntime? JSRuntime { get; set; }
 
         private string pdfBase64 = string.Empty;
         private bool isPreviewLoading;

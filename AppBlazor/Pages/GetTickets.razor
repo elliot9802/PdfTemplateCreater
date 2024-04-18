@@ -1,103 +1,157 @@
 ﻿@page "/get-tickets"
+@using Models.DTO
+@using Newtonsoft.Json;
 @using Services
+@using AppBlazor.Components;
 @inject HttpClient HttpClient
 @inject ConfigService configService
 
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h3>Hämta biljetter från större köp</h3>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <label for="webbUidInput" class="form-label">User id</label>
-                        <input type="text" class="form-control" id="webbUidInput" @bind="@webbUid" placeholder="Ange id för köpet">
+@if (dataLoading)
+{
+    <p><em>Laddar...</em></p>
+}
+else if (webbUids is null || templates is null)
+{
+    <p><em>Ingen data att visa.</em></p>
+
+}
+else
+{
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h3>Hämta biljetter från större köp</h3>
                     </div>
-                    <div class="mb-3">
-                        <label for="ShowEventInfoNmr" class="form-label">ShowEventInfo Nummer</label>
-                        <input type="text" class="form-control" id="ShowEventInfoNmr" @bind="@ShowEventInfoNmr" placeholder="Ange ShowEventInfo Nummer för köpet">
-                    </div>
-                    <button @onclick="PreviewTemplate" class="btn btn-primary"
-                            disabled="@(isLoading || !webbUid.HasValue ? "disabled" : null)">
-                        @if (isLoading)
-                        {
+                    <div class="card-body">
+                        <select @bind="selectedWebbUidString" class="form-control mb-3">
+                            <option value="">-- Välj en WebbUid --</option>
+                            @foreach (var uid in webbUids)
+                            {
+                                <option value="@uid.WebbUid.ToString()">@uid.Name</option>
+                            }
+                        </select>
+                        <select @bind="selectedShowEventInfo" class="form-control mb-3">
+                            <option value="">-- Välj en mall --</option>
+                            @foreach (var template in templates.OrderBy(t => t.ShowEventInfo))
+                            {
+                                <option value="@template.ShowEventInfo">@($"Mall {template.ShowEventInfo} - {(template.ShowEventInfo <= 3 ? "Fördefinerad" : "Användartillagd")}: {template.Name}")</option>
+                            }
+                        </select>
+                        <button @onclick="PreviewTemplate" class="btn btn-primary"
+                                disabled="@(isLoading || selectedWebbUid == Guid.Empty ||!selectedShowEventInfo.HasValue)">
+                            @if (isLoading)
+                            {
                                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                                 <span>Laddar...</span>
-                        }
-                        else
-                        {
-                            <span>Visa biljetter</span>
-                        }
-                    </button>
-                </div>
-            </div>
-
-            @if (!isLoading && !string.IsNullOrEmpty(pdfBase64))
-            {
-                <div>
-                    <div class="mt-3 text-center">
-                        <a href="@($"data:application/pdf;base64,{pdfBase64}")" class="btn btn-success" download="tickets.pdf">Ladda ner PDF</a>
+                            }
+                            else
+                            {
+                                <span>Visa biljetter</span>
+                            }
+                        </button>
                     </div>
-                    <object data="@($"data:application/pdf;base64,{pdfBase64}")" style="width:100%; height:500px;" frameborder="0">
-                        This browser does not support PDFs. Please download the PDF to view it:
-                        <a href="@($"data:application/pdf;base64,{pdfBase64}")" download="tickets.pdf">Ladda ner PDF</a>.
-                    </object>
                 </div>
-            }
-            else if (!isLoading && !string.IsNullOrEmpty(ErrorMessage))
-            {
-                <div class="alert alert-danger mt-3" role="alert">
-                    @ErrorMessage
-                </div>
-            }
-            else if (!isLoading)
-            {
-                <p class="text-center mt-3">Alla biljetter kommer visas här...</p>
-            }
+                <ErrorBoundary>
+                    <PdfPreviewComponent PdfBase64="@pdfBase64" />
+                </ErrorBoundary>
+                @if (!string.IsNullOrEmpty(ErrorMessage))
+                {
+                    <div class="alert alert-danger mt-3" role="alert">
+                        @ErrorMessage
+                    </div>
+                }
+                else if (string.IsNullOrEmpty(pdfBase64))
+                {
+                    <p class="text-center mt-3">Alla biljetter kommer visas här...</p>
+                }
+            </div>
         </div>
     </div>
-</div>
+}
 
 @code {
-    private ConfigService ConfigService => configService ?? throw new InvalidOperationException("ConfigService is not configured.");
+    private List<WebbUidInfo>? webbUids = new();
+    private List<TemplateCUdto>? templates = new();
+    // private Guid selectedWebbUid;
+    private int? selectedShowEventInfo;
     private string? pdfBase64;
-    private Guid? webbUid;
-    private int? ShowEventInfoNmr;
+    private bool dataLoading = false;
     private bool isLoading = false;
     public string? ErrorMessage { get; set; }
+    private string selectedWebbUidString = "";
+    private Guid selectedWebbUid => Guid.TryParse(selectedWebbUidString, out var guid) ? guid : Guid.Empty;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        dataLoading = true;
+        ErrorMessage = string.Empty;
+        try
+        {
+            await LoadWebbUidsAsync();
+            await LoadTemplatesAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Failed to load data: " + ex.Message;
+            throw;
+        }
+        finally
+        {
+            dataLoading = false;
+        }
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        var response = await HttpClient.GetAsync(configService!.GetApiUrl("/api/PdfTemplate/ReadTemplatesDto"));
+        if (response.IsSuccessStatusCode)
+        {
+            templates = await response.Content.ReadFromJsonAsync<List<TemplateCUdto>>();
+        }
+        else
+        {
+            throw new InvalidOperationException("Failed to load templates.");
+        }
+    }
+
+    private async Task LoadWebbUidsAsync()
+    {
+        var response = await HttpClient.GetAsync(configService!.GetApiUrl("/api/PdfTemplate/GetAllWebbUids"));
+        if (response.IsSuccessStatusCode)
+        {
+            var jsonString = await response.Content.ReadAsStringAsync();
+            webbUids = await response.Content.ReadFromJsonAsync<List<WebbUidInfo>>();
+        }
+        else
+        {
+            throw new InvalidOperationException("Failed to load Webb UIDs.");
+        }
+    }
 
     private async Task PreviewTemplate()
     {
         isLoading = true;
-        ErrorMessage = null;
-        pdfBase64 = null;
+        ErrorMessage = string.Empty;
 
-        try
-        {
-            var requestUri = ConfigService.GetApiUrl($"/api/PdfTemplate/CreateCombinedPdf?webbUid={webbUid}&showEventInfo={ShowEventInfoNmr}");
-            var emptyContent = new StringContent(string.Empty, System.Text.Encoding.UTF8, "application/json");
-            var response = await HttpClient.PostAsync(requestUri, emptyContent);
+        var requestUri = configService.GetApiUrl($"/api/PdfTemplate/CreateCombinedPdf?webbUid={selectedWebbUid}&showEventInfo={selectedShowEventInfo}");
 
-            if (response.IsSuccessStatusCode)
-            {
-                var pdfData = await response.Content.ReadAsByteArrayAsync();
-                pdfBase64 = Convert.ToBase64String(pdfData);
-            }
-            else
-            {
-                ErrorMessage = $"Failed to preview the template. Status: {response.StatusCode}";
-            }
-        }
-        catch (Exception ex)
+        var response = await HttpClient.PostAsync(requestUri, null);
+
+        if (response.IsSuccessStatusCode)
         {
-            ErrorMessage = "An error occurred while attempting to preview the template. Please try again.";
-            Console.WriteLine($"Exception while calling PreviewTemplate API: {ex.Message}");
+            var pdfData = await response.Content.ReadAsByteArrayAsync();
+            pdfBase64 = Convert.ToBase64String(pdfData);
         }
-        finally
+        else
         {
-            isLoading = false;
+            ErrorMessage = $"Failed to preview the template. Status: {response.StatusCode}";
         }
+        isLoading = false;
     }
 }

@@ -123,6 +123,22 @@ namespace AppPdfTemplateWApi.Controllers
             }
         }
 
+        //GET: api/PdfTemplate/GetAllWebbUids
+        [HttpGet]
+        public async Task<IActionResult> GetAllWebbUids()
+        {
+            try
+            {
+                var webbUids = await _pdfService.GetAllWebbUidsAsync();
+                return Ok(webbUids);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving Webb UIDs: {ErrorMessage}", ex.Message);
+                return StatusCode(500, "Internal Server Error: Unable to retrieve Webb UIDs.");
+            }
+        }
+
         //POST: api/PdfTemplate/GetPredefinedTemplate?showEventInfo={showEventInfo}
         [HttpPost]
         public async Task<IActionResult> GetPredefinedTemplate(int showEventInfo)
@@ -215,38 +231,6 @@ namespace AppPdfTemplateWApi.Controllers
             {
                 _logger.LogError(ex, "An error occured while updating the template.");
                 return StatusCode(500, "An internal server error occured.");
-            }
-        }
-
-        //POST: api/PdfTemplate/CreateCombinedPdf?webbUid={webbUid}
-        [HttpPost]
-        public async Task<IActionResult> CreateCombinedPdf(Guid webbUid, int showEventInfo)
-        {
-            if (webbUid == Guid.Empty || showEventInfo <= 0)
-            {
-                _logger.LogWarning("CreateCombinedPdf called with invalid parameters. WebbUid: {WebbUid}, ShowEventInfo: {ShowEventInfo}", webbUid, showEventInfo);
-                return BadRequest("Invalid request parameters.");
-            }
-
-            try
-            {
-                var pdfBytes = await _pdfService.CreateCombinedPdfAsync(webbUid, showEventInfo);
-                return File(pdfBytes, "application/pdf", $"Tickets_{webbUid}.pdf");
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogError(ex, "Error creating combined PDF due to invalid argument: {ErrorMessage}", ex.Message);
-                return BadRequest(ex.Message);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                _logger.LogWarning(ex, "Specified data not found: {ErrorMessage}", ex.Message);
-                return NotFound(ex.Message);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating combined PDF: {ErrorMessage}", ex.Message);
-                return StatusCode(500, "An internal server error occurred.");
             }
         }
 

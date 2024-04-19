@@ -2,8 +2,6 @@
 {
     public class TicketHandling
     {
-        #region Standard options for non-text elements
-
         public bool AddScissorsLine { get; set; }
         public bool IncludeAd { get; set; }
         public float? AdPositionX { get; set; }
@@ -16,44 +14,45 @@
         public List<CustomTextElement>? CustomTextElements { get; set; } = new();
         public Dictionary<string, TextElementConfig> TextConfigs { get; set; } = new();
 
-        #endregion Standard options for non-text elements
-
         public TicketHandling()
         { InitializeTextConfigs(); }
 
         public void InitializeTextConfigs()
         {
-            var properties = new Dictionary<string, string>
+            var properties = new Dictionary<string, (string PropertyName, float DefaultFontSize)>
             {
-                {"Artikelnamn", "Artikelnamn"},
-                {"ArtikelNr", "ArtikelNr"},
-                {"BookingNr", "BokningsNr"},
-                {"ChairNr", "stolsnr"},
-                {"ChairRow", "stolsrad"},
-                {"ContactPerson", "KontaktPerson"},
-                {"Datum", "Datum"},
-                {"Description", "Beskrivning"},
-                {"Email", "eMail"},
-                {"Entrance", "Ingang"},
-                {"EventDate", "datumStart"},
-                {"EventName", "namn1"},
-                {"FacilityName", "anamn"},
-                {"Logorad1", "logorad1"},
-                {"Logorad2", "logorad2"},
-                {"Price", "Pris"},
-                {"RutBokstav", "Rutbokstav"},
-                {"Section", "namn"},
-                {"ServiceFee", "serviceavgift1_kr"},
-                {"SubEventName", "namn2"},
-                {"Webbcode", "Webbcode"},
-                {"WebBookingNr", "webbkod"}
+                {"Artikelnamn", ("Artikelnamn", 8)},
+                {"ArtikelNr", ("ArtikelNr", 8)},
+                {"BookingNr", ("BokningsNr", 8)},
+                {"ChairNr", ("stolsnr", 9)},
+                {"ChairRow", ("stolsrad", 9)},
+                {"ContactPerson", ("KontaktPerson", 8)},
+                {"Datum", ("Datum", 8)},
+                {"Description", ("Beskrivning", 8)},
+                {"Email", ("eMail", 8)},
+                {"Entrance", ("Ingang", 9)},
+                {"EventDate", ("datumStart", 9)},
+                {"EventName", ("namn1", 9)},
+                {"FacilityName", ("anamn", 9)},
+                {"Logorad1", ("logorad1", 8)},
+                {"Logorad2", ("logorad2", 8)},
+                {"Price", ("Pris", 8)},
+                {"RutBokstav", ("Rutbokstav", 24)},
+                {"Section", ("namn", 9)},
+                {"ServiceFee", ("serviceavgift1_kr", 8)},
+                {"SubEventName", ("namn2", 8)},
+                {"Webbcode", ("Webbcode", 8)},
+                {"WebBookingNr", ("webbkod", 8)}
             };
             foreach (var property in properties)
             {
                 TextConfigs[property.Key] = new TextElementConfig
                 {
-                    DataViewPropertyName = property.Value,
-                    Style = new TextElement()
+                    DataViewPropertyName = property.Value.PropertyName,
+                    Style = new TextElement
+                    {
+                        FontSize = property.Value.DefaultFontSize
+                    }
                 };
             }
         }

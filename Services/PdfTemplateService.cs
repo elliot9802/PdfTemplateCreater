@@ -63,17 +63,38 @@ namespace Services
 
         #region Creating Pdf methods
 
-        public static TicketsDataView GenerateMockTicketData(string ticketType)
+        public static TicketsDataView GenerateMockTicketData()
         {
-            TicketsDataSeeder seeder = new();
-            try
+            Random random = new();
+
+            return new TicketsDataView
             {
-                return seeder.GenerateMockData(ticketType);
-            }
-            catch (ArgumentException ex)
-            {
-                throw new InvalidOperationException($"Failed to generate mock ticket data: {ex.Message}", ex);
-            }
+                anamn = "Anläggning",
+                Artikelnamn = "Artikel namn",
+                namn = "Sektion",
+                namn1 = "Eventnamn",
+                namn2 = "Eventundernamn",
+                Ingang = "Ingång",
+                stolsnr = $"{random.Next(1, 20)}",
+                Rutbokstav = "PK",
+                ArtikelNr = random.Next(10000, 99999).ToString(),
+                BokningsNr = random.Next(4000, 7999),
+                Datum = DateTime.Now.AddDays(random.Next(-30, 30)).ToString("yyyy-MM-dd-ss"),
+                datumStart = DateTime.Now.AddDays(random.Next(-30, 30)),
+                eMail = "user@example.com",
+                KontaktPerson = "Contact Person",
+                logorad1 = "Logorad1",
+                logorad2 = "Logorad2",
+                Pris = random.Next(50, 500) + 0.00m,
+                reklam1 = "Reklam, kan vara en bild eller form av text",
+                serviceavgift1_kr = random.Next(10, 30) + 0.00m,
+                stolsrad = $"{random.Next(1, 5)}",
+                wbarticleinfo = "Article Info",
+                wbeventinfo = "Event Info",
+                Webbcode = "123456A",
+                webbkod = "W78910BC",
+                WebbUid = Guid.NewGuid()
+            };
         }
 
         public TemplateCUdto MapTicketHandlingToTemplateCUdto(TicketHandling ticketHandling)
@@ -127,8 +148,7 @@ namespace Services
 
             try
             {
-                var ticketType = DetermineTicketType(ticketHandling);
-                var ticketData = GenerateMockTicketData(ticketType);
+                var ticketData = GenerateMockTicketData();
 
                 using PdfDocument document = new();
                 PdfPage page = document.Pages.Add();
@@ -558,22 +578,6 @@ namespace Services
             {
                 _logger.LogError(ex, "Error deserializing ticketHandlingJson: {ErrorMessage}", ex.Message);
                 return new TicketHandling();
-            }
-        }
-
-        private static string DetermineTicketType(TicketHandling ticketHandling)
-        {
-            if (!ticketHandling.TextConfigs["ChairNr"].Style.Include && ticketHandling.TextConfigs["Section"].Style.Include)
-            {
-                return "Onumrerad";
-            }
-            else if (!ticketHandling.TextConfigs["ChairRow"].Style.Include && !ticketHandling.TextConfigs["Section"].Style.Include)
-            {
-                return "Presentkort";
-            }
-            else
-            {
-                return "Numrerad";
             }
         }
 

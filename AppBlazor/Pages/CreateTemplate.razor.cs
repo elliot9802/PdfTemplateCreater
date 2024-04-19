@@ -17,9 +17,6 @@ namespace AppBlazor.Pages
         [Inject]
         public NavigationManager NavigationManager { get; set; } = default!;
 
-        [Inject]
-        public TicketHandlingService TicketService { get; set; } = default!;
-
         // Component State Properties
         private TicketHandling ticketHandling = new();
 
@@ -51,9 +48,9 @@ namespace AppBlazor.Pages
 
             ticketHandling = selectedTicketType switch
             {
-                "Numrerad" => TicketService.CreateNumreradTicketHandling(),
-                "Onumrerad" => TicketService.CreateOnumreradTicketHandling(),
-                "Presentkort" => TicketService.CreatePresentkortTicketHandling(),
+                "Numrerad" => TicketHandlingService.CreateNumreradTicketHandling(),
+                "Onumrerad" => TicketHandlingService.CreateOnumreradTicketHandling(),
+                "Presentkort" => TicketHandlingService.CreatePresentkortTicketHandling(),
                 _ => new TicketHandling(),
             };
         }

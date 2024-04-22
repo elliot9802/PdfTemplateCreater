@@ -1,16 +1,27 @@
 ﻿namespace Models
 {
+    public enum CodeSize
+    {
+        Small,
+        Medium,
+        Large
+    }
+
     public class TicketHandling
     {
         public bool AddScissorsLine { get; set; }
         public bool IncludeAd { get; set; }
-        public float? AdPositionX { get; set; }
-        public float? AdPositionY { get; set; }
+        public float AdPositionX { get; set; }
+        public float AdPositionY { get; set; } = 500f;
         public bool UseQRCode { get; set; }
+        public float QRSize { get; set; } = 150f;
         public bool FlipBarcode { get; set; }
-        public float? BarcodePositionX { get; set; }
-        public float? BarcodePositionY { get; set; }
-
+        public float BarcodePositionX { get; set; } = 825f;
+        public float BarcodePositionY { get; set; } = 320f;
+        public CodeSize CodeSize { get; set; } = CodeSize.Medium;
+        public float BarcodeWidth { get; set; } = 270f;
+        public float BarcodeHeight { get; set; } = 90f;
+        public bool HideBarcodeText { get; set; }
         public List<CustomTextElement>? CustomTextElements { get; set; } = new();
         public Dictionary<string, TextElementConfig> TextConfigs { get; set; } = new();
 

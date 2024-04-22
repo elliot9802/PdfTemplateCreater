@@ -41,12 +41,6 @@
                                 <label>Font Size</label>
                             </div>
                             <div class="form-floating mb-3">
-                                <input type="color" class="form-control form-control-sm"
-                                       value="@config.Value.Style.FontColor"
-                                @oninput="e => HandleFontColorChange(e, config.Value.Style)" />
-                                <label>Font Color</label>
-                            </div>
-                            <div class="form-floating mb-3">
                                 <select class="form-select form-control-sm" @onchange="e => HandleFontStyleChange(e, config.Value.Style)"
                                         id="@($"fontStyle-{config.Key}")">
                                     @foreach (FontStyle style in Enum.GetValues(typeof(FontStyle)))
@@ -58,6 +52,12 @@
                                     }
                                 </select>
                                 <label for="@($"fontStyle-{config.Key}")">Font Style</label>
+                            </div>
+                            <div class="form-floating mb-3">
+                                <input type="color" class="form-control form-control-sm"
+                                       value="@config.Value.Style.FontColor"
+                                @oninput="e => HandleFontColorChange(e, config.Value.Style)" />
+                                <label>Font Color</label>
                             </div>
                         </div>
                     }

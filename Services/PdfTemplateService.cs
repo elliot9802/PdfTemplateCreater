@@ -17,6 +17,8 @@ namespace Services
     {
         #region constructor logic
 
+        private readonly float pdfWidth = 1024f;
+        private readonly float pdfHeight = 364f;
         private readonly TemplateRepository _repo;
         private readonly ILogger<PdfTemplateService> _logger;
         private readonly string _scissorsLineImagePath;
@@ -71,29 +73,29 @@ namespace Services
             {
                 anamn = "Anläggning",
                 Artikelnamn = "Artikel namn",
+                Beskrivning = "En beskrivande text som beskriver artikel",
                 namn = "Sektion",
                 namn1 = "Eventnamn",
                 namn2 = "Eventundernamn",
                 Ingang = "Ingång",
                 stolsnr = $"{random.Next(1, 20)}",
-                Rutbokstav = "PK",
+                Rutbokstav = "RB",
                 ArtikelNr = random.Next(10000, 99999).ToString(),
                 BokningsNr = random.Next(4000, 7999),
                 Datum = DateTime.Now.AddDays(random.Next(-30, 30)).ToString("yyyy-MM-dd-ss"),
                 datumStart = DateTime.Now.AddDays(random.Next(-30, 30)),
-                eMail = "user@example.com",
-                KontaktPerson = "Contact Person",
+                eMail = "användare@exempel.se",
+                KontaktPerson = "Kontakt Person",
                 logorad1 = "Logorad1",
                 logorad2 = "Logorad2",
                 Pris = random.Next(50, 500) + 0.00m,
                 reklam1 = "Reklam, kan vara en bild eller form av text",
                 serviceavgift1_kr = random.Next(10, 30) + 0.00m,
                 stolsrad = $"{random.Next(1, 5)}",
-                wbarticleinfo = "Article Info",
+                wbarticleinfo = "Artikle Info",
                 wbeventinfo = "Event Info",
                 Webbcode = "123456A",
-                webbkod = "W78910BC",
-                WebbUid = Guid.NewGuid()
+                webbkod = "W78910BC"
             };
         }
 
@@ -258,8 +260,8 @@ namespace Services
 
         private async Task DrawPageContent(PdfPage page, string backgroundImagePath, TicketsDataView ticketData, TicketHandling ticketHandling)
         {
-            float scaleFactor = Math.Min(page.GetClientSize().Width / 1024f, 1);
-            PointF ticketOrigin = new((page.GetClientSize().Width - (1024 * scaleFactor)) / 2, 0);
+            float scaleFactor = Math.Min(page.GetClientSize().Width / pdfWidth, 1);
+            PointF ticketOrigin = new((page.GetClientSize().Width - (pdfWidth * scaleFactor)) / 2, 0);
 
             DrawBackgroundImage(page, backgroundImagePath, ticketOrigin, scaleFactor);
             DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketHandling);
@@ -277,9 +279,12 @@ namespace Services
         {
             string? imageUrl = ExtractImageUrl(htmlContent);
             htmlContent = HandleHtmlEntities(htmlContent);
-            htmlContent = RemoveImageTag(htmlContent);
+            htmlContent = Regex.Replace(htmlContent, "<img.+?>", "", RegexOptions.IgnoreCase);
 
-            PointF adPosition = CalculateAdPosition(origin, scale, ticketHandling);
+            PointF adPosition = new(
+                origin.X + (ticketHandling.AdPositionX * scale),
+                origin.Y + (ticketHandling.AdPositionY * scale)
+            );
             if (!string.IsNullOrEmpty(imageUrl))
             {
                 await DrawAdImage(graphics, imageUrl, adPosition, scale);
@@ -287,24 +292,28 @@ namespace Services
             DrawHtmlContent(graphics, page, htmlContent, new PdfStandardFont(PdfFontFamily.Helvetica, 8), adPosition);
         }
 
-        private static void DrawBackgroundImage(PdfPage page, string imagePath, PointF origin, float scale)
+        private void DrawBackgroundImage(PdfPage page, string imagePath, PointF origin, float scale)
         {
             using FileStream imageStream = new(imagePath, FileMode.Open, FileAccess.Read);
             PdfBitmap background = new(imageStream);
 
-            page.Graphics.DrawImage(background, origin.X, origin.Y, 1024 * scale, 364 * scale);
+            page.Graphics.DrawImage(background, origin.X, origin.Y, pdfWidth * scale, pdfHeight * scale);
         }
 
         private static void DrawBarcodeOrQRCode(PdfPage page, PointF origin, float scale, TicketHandling ticketHandling, TicketsDataView ticketData)
         {
-            PointF barCodePosition = CalculateBarcodePosition(origin, scale, ticketHandling);
+            PointF position = new(
+                origin.X + (ticketHandling.BarcodePositionX * scale),
+                origin.Y + (ticketHandling.BarcodePositionY * scale)
+            );
+
             if (ticketHandling.UseQRCode)
             {
-                DrawQRCode(page.Graphics, barCodePosition, scale, ticketData);
+                DrawQRCode(page.Graphics, position, scale, ticketHandling, ticketData);
             }
             else
             {
-                DrawBarcode(page.Graphics, barCodePosition, scale, ticketHandling, ticketData);
+                DrawBarcode(page.Graphics, position, scale, ticketHandling, ticketData);
             }
         }
 
@@ -378,9 +387,9 @@ namespace Services
 
                 PointF scissorsPosition = new(
                 origin.X,
-                origin.Y + (364 * scale) + (10 * scale)
+                origin.Y + (pdfHeight * scale) + (10 * scale)
                 );
-                SizeF scissorsSize = new(1024 * scale, scissorsLineImage.Height * scale);
+                SizeF scissorsSize = new(pdfWidth * scale, scissorsLineImage.Height * scale);
 
                 graphics.DrawImage(scissorsLineImage, scissorsPosition, scissorsSize);
             }
@@ -445,22 +454,6 @@ namespace Services
 
         #region Helper methods
 
-        private static PointF CalculateAdPosition(PointF origin, float scale, TicketHandling ticketHandling)
-        {
-            return new PointF(
-                origin.X + ((ticketHandling.AdPositionX ?? 0) * scale),
-                origin.Y + ((ticketHandling.AdPositionY ?? 500) * scale)
-            );
-        }
-
-        private static PointF CalculateBarcodePosition(PointF origin, float scale, TicketHandling ticketHandling)
-        {
-            return new PointF(
-                origin.X + ((ticketHandling.BarcodePositionX ?? 825) * scale),
-                origin.Y + ((ticketHandling.BarcodePositionY ?? 320) * scale)
-            );
-        }
-
         private static async Task DrawAdImage(PdfGraphics graphics, string imageUrl, PointF adPosition, float scale)
         {
             using HttpClient httpClient = new();
@@ -478,7 +471,8 @@ namespace Services
             PdfCode39Barcode barcode = new()
             {
                 Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod,
-                Size = new SizeF(270 * scale, 90 * scale)
+                Size = new SizeF(ticketHandling.BarcodeWidth * scale, ticketHandling.BarcodeHeight * scale),
+                TextDisplayLocation = ticketHandling.HideBarcodeText ? TextLocation.None : TextLocation.Bottom
             };
 
             if (ticketHandling.FlipBarcode)
@@ -495,21 +489,21 @@ namespace Services
             }
         }
 
+        private static void DrawQRCode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketHandling ticketHandling, TicketsDataView ticketData)
+        {
+            PdfQRBarcode qrCode = new()
+            {
+                Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod,
+                Size = new SizeF(ticketHandling.QRSize * scale, ticketHandling.QRSize * scale)
+            };
+            qrCode.Draw(graphics, barcodePosition);
+        }
+
         private static void DrawHtmlContent(PdfGraphics graphics, PdfPage page, string htmlContent, PdfFont font, PointF adPosition)
         {
             RectangleF rect = new(adPosition.X, adPosition.Y, page.GetClientSize().Width, page.GetClientSize().Height);
             PdfHTMLTextElement htmlTextElement = new(htmlContent, font, PdfBrushes.Black);
             htmlTextElement.Draw(graphics, rect);
-        }
-
-        private static void DrawQRCode(PdfGraphics graphics, PointF barcodePosition, float scale, TicketsDataView ticketData)
-        {
-            PdfQRBarcode qrCode = new()
-            {
-                Text = string.IsNullOrEmpty(ticketData.webbkod) ? ticketData.Webbcode : ticketData.webbkod,
-                Size = new SizeF(450 * scale, 205 * scale)
-            };
-            qrCode.Draw(graphics, barcodePosition);
         }
 
         private static string? ExtractImageUrl(string htmlContent)
@@ -529,11 +523,6 @@ namespace Services
                 htmlContent = htmlContent.Replace(entity.Key, entity.Value);
             }
             return htmlContent;
-        }
-
-        private static string RemoveImageTag(string htmlContent)
-        {
-            return Regex.Replace(htmlContent, "<img.+?>", "", RegexOptions.IgnoreCase);
         }
 
         private static string SaveTempImage(byte[] fileData)

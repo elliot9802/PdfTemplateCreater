@@ -53,9 +53,16 @@ else
                         </button>
                     </div>
                 </div>
+                @if (!string.IsNullOrEmpty(pdfBase64) && !isLoading)
+                {
+                    <div class="mt-3 text-center">
+                        <a href="@($"data:application/pdf;base64,{pdfBase64}")" class="btn btn-success" download="tickets.pdf">Ladda ner PDF</a>
+                    </div>
                 <ErrorBoundary>
                     <PdfPreviewComponent PdfBase64="@pdfBase64" />
                 </ErrorBoundary>
+                }
+
                 @if (!string.IsNullOrEmpty(ErrorMessage))
                 {
                     <div class="alert alert-danger mt-3" role="alert">

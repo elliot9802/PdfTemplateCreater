@@ -32,7 +32,7 @@
 <div align="center">
   <!-- PROJECT LOGO 
   <a href="https://github.com/elliot9802/PdfTemplateCreater">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <img src="https://github.com/elliot9802/PdfTemplateCreater/blob/master/PdfTemplateDesigner.png" alt="Logo" width="80" height="80">
   </a>
 -->
   <h3 align="center">PdfTemplateCreater</h3>
@@ -83,8 +83,9 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-
-[![Product Screen Shot][product-screenshot]](https://github.com/elliot9802/PdfTemplateCreater/blob/master/PdfTemplateDesigner.png)
+<a href="https://github.com/elliot9802/PdfTemplateCreater">
+    <img src="https://github.com/elliot9802/PdfTemplateCreater/blob/master/PdfTemplateDesigner.png" alt="Logo" width="950" height="550">
+</a>
 
 A flexible API backend and Blazor frontend enabling users to generate custom PDF templates with selectable features for their articles. Supports dynamic backgrounds, customizable text, and choice of barcode or QR code, tailored to fit various article designs and business requirements.
 

@@ -40,7 +40,7 @@ else
                             }
                         </select>
                         <button @onclick="PreviewTemplate" class="btn btn-primary"
-                                disabled="@(isLoading || selectedWebbUid == Guid.Empty ||!selectedShowEventInfo.HasValue)">
+                                disabled="@(isLoading || selectedWebbUid == Guid.Empty)">
                             @if (isLoading)
                             {
                                 <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -74,7 +74,6 @@ else
 @code {
     private List<WebbUidInfo>? webbUids = new();
     private List<TemplateCUdto>? templates = new();
-    // private Guid selectedWebbUid;
     private int? selectedShowEventInfo;
     private string? pdfBase64;
     private bool dataLoading = false;

@@ -5,7 +5,7 @@ namespace Services
 {
     public interface IPdfTemplateService
     {
-        Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, int showEventInfo);
+        Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, int? showEventInfo);
 
         Task<byte[]> CreatePdfAsync(TicketHandling ticketHandling, byte[] bgFileData, string bgFileName, string? name, bool saveToDb);
 

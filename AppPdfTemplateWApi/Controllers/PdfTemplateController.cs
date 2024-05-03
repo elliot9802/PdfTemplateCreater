@@ -20,9 +20,9 @@ namespace AppPdfTemplateWApi.Controllers
 
         //POST: api/PdfTemplate/CreateCombinedPdf?webbUid={webbUid}&showEventInfo={showEventInfo}
         [HttpPost]
-        public async Task<IActionResult> CreateCombinedPdf(Guid webbUid, int showEventInfo)
+        public async Task<IActionResult> CreateCombinedPdf(Guid webbUid, int? showEventInfo)
         {
-            if (webbUid == Guid.Empty || showEventInfo <= 0)
+            if (webbUid == Guid.Empty)
             {
                 _logger.LogWarning("CreateCombinedPdf called with invalid parameters. WebbUid: {WebbUid}, ShowEventInfo: {ShowEventInfo}", webbUid, showEventInfo);
                 return BadRequest("Invalid request parameters.");
@@ -178,6 +178,7 @@ namespace AppPdfTemplateWApi.Controllers
             return Ok(template);
         }
 
+        //GET: api/PdfTemplate/ReadTemplatesDto
         [HttpGet]
         public async Task<IActionResult> ReadTemplatesDto()
         {

@@ -9,7 +9,7 @@
 
     public class WebbUidInfo
     {
-        public Guid? WebbUid {  get; set; }
+        public Guid? WebbUid { get; set; }
         public string? Name { get; set; } = "Empty";
     }
 }

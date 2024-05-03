@@ -43,9 +43,9 @@ namespace Services
 
         public Task<byte[]> GetFileDataAsync(int? fileStorageID) => _repo.GetFileDataAsync(fileStorageID);
 
-        public Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int showEventInfo) => _repo.GetPredefinedTicketHandlingAsync(showEventInfo);
+        public Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int? showEventInfo) => _repo.GetPredefinedTicketHandlingAsync(showEventInfo);
 
-        public Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int showEventInfo) => _repo.GetTicketTemplateByShowEventInfoAsync(showEventInfo);
+        public Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int? showEventInfo) => _repo.GetTicketTemplateByShowEventInfoAsync(showEventInfo);
 
         public Task<TemplateCUdto> GetTemplateByIdAsync(Guid ticketTemplateId) => _repo.GetTemplateByIdAsync(ticketTemplateId);
 
@@ -187,7 +187,7 @@ namespace Services
             }
         }
 
-        public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, int showEventInfo)
+        public async Task<byte[]> CreateCombinedPdfAsync(Guid webbUid, int? showEventInfo)
         {
             string outputPath = GetTemporaryPdfFilePath();
             List<string> tempFiles = new() { outputPath };
@@ -198,16 +198,32 @@ namespace Services
                 if (!ticketsData.Any())
                 {
                     _logger.LogWarning("No tickets found for WebbUid: {WebbUid}", webbUid);
-                    throw new KeyNotFoundException($"No tickets found for WebbUid: {webbUid}.");
+                    return Array.Empty<byte>();
                 }
 
                 using var document = new PdfDocument();
+
                 foreach (var ticketData in ticketsData)
                 {
-                    var ticketTemplate = await GetTicketTemplateByShowEventInfoAsync(showEventInfo);
-                    if (ticketTemplate == null)
+                    int? eventInfo = showEventInfo ?? ticketData.showEventInfo;
+
+                    TicketTemplateDbM? ticketTemplate;
+                    TicketHandling? ticketHandling;
+
+                    if (showEventInfo == null)
                     {
-                        _logger.LogWarning("Ticket template not found for ShowEventInfo: {ShowEventInfo}", showEventInfo);
+                        ticketTemplate = await GetTicketTemplateByShowEventInfoAsync(ticketData.showEventInfo);
+                        ticketHandling = await GetPredefinedTicketHandlingAsync(ticketData.showEventInfo);
+                    }
+                    else
+                    {
+                        ticketTemplate = await GetTicketTemplateByShowEventInfoAsync(showEventInfo);
+                        ticketHandling = await GetPredefinedTicketHandlingAsync(showEventInfo);
+                    }
+
+                    if (ticketHandling == null || ticketTemplate == null)
+                    {
+                        _logger.LogWarning("No TicketHandling or template found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", eventInfo);
                         continue;
                     }
 
@@ -221,13 +237,6 @@ namespace Services
                     string bgFilePath = SaveTempImage(fileData);
                     tempFiles.Add(bgFilePath);
 
-                    var ticketHandling = await GetPredefinedTicketHandlingAsync(showEventInfo);
-                    if (ticketHandling == null)
-                    {
-                        _logger.LogWarning("No TicketHandling found for ShowEventInfo: {ShowEventInfo}, skipping ticket.", showEventInfo);
-                        continue;
-                    }
-
                     var page = document.Pages.Add();
                     await DrawPageContent(page, bgFilePath, ticketData, ticketHandling);
                 }
@@ -235,7 +244,7 @@ namespace Services
                 if (document.Pages.Count == 0)
                 {
                     _logger.LogWarning("No pages created in the document for WebbUid: {WebbUid}", webbUid);
-                    throw new InvalidOperationException("Failed to create any pages in the PDF document.");
+                    return Array.Empty<byte>();
                 }
 
                 await SaveDocumentAsync(document, outputPath);

@@ -124,7 +124,7 @@ namespace DbRepos
             }
         }
 
-        public async Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int showEventInfo)
+        public async Task<TicketHandling?> GetPredefinedTicketHandlingAsync(int? showEventInfo)
         {
             try
             {
@@ -166,7 +166,7 @@ namespace DbRepos
             return template ?? throw new KeyNotFoundException($"Template with ID {id} not found.");
         }
 
-        public async Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int showEventInfo)
+        public async Task<TicketTemplateDbM?> GetTicketTemplateByShowEventInfoAsync(int? showEventInfo)
         {
             try
             {
@@ -206,7 +206,6 @@ namespace DbRepos
         {
             await using var db = TicketTemplateDbContext.Create(_dbLogin);
 
-            // Query groups the entries by WebbUid, counts each group, orders them by count in descending order, and finally, selects the top 10 with the most entries.
             var topWebbUids = await db.Vy_ShowTickets
                 .AsNoTracking()
                 .Where(ticket => ticket.WebbUid != null)
@@ -275,10 +274,6 @@ namespace DbRepos
 
                 try
                 {
-                    // manually setting filestorageid to +1 from max filestorageid, might be neccesary if Id keeps being set from old data
-                    //var maxId = await db.FileStorage.MaxAsync(f => (int?)f.FileStorageId) ?? 0;
-                    //fileStorageId = maxId + 1;
-
                     var existingFileDescription = await db.FileDescription
                                                 .FirstOrDefaultAsync(fd => fd.FileSize == fileSize && fd.FileTypeId == fileTypeId);
 
@@ -291,7 +286,6 @@ namespace DbRepos
                     {
                         var fileStorage = new FileStorage
                         {
-                            //FileStorageId = fileStorageId,
                             Data = fileData,
                             CreateTime = createTime
                         };

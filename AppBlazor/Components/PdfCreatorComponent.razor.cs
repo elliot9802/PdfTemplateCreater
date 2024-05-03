@@ -39,6 +39,7 @@ namespace AppBlazor.Components
         private bool isSaveLoading;
         private string? ErrorMessage = string.Empty;
         public string? SuccessMessage { get; set; }
+        private readonly Code Barcode = Code.Barcode;
 
         private readonly Dictionary<string, string> errorElementMap = new()
         {

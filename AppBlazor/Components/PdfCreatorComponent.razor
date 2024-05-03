@@ -52,9 +52,19 @@
                 <div class="col-md-12">
                     <h3 class="text-center">QR/Streckkod</h3>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
+                    <h5 class="text-center">Välj</h5>
+                    <div class="form-floating">
+                        <select @bind="TicketHandling.Code" class="form-select form-control-sm">
+                            <option value="Barcode">Streckkod</option>
+                            <option value="QrCode">QR Code</option>
+                        </select>
+                        <label>QR/Streckkod</label>
+                    </div>
+                </div>
+                <div class="col-md-4">
                     <h5 class="text-center">Storlek</h5>
-                    @if (!TicketHandling.UseQRCode)
+                    @if (TicketHandling.Code == Barcode)
                     {
                         <div class="form-floating mb-3">
                             <input type="number" class="form-control" @bind="TicketHandling.BarcodeWidth" id="BarcodeWidth" />
@@ -73,7 +83,7 @@
                         </div>
                     }
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <h5 class="text-center">Position</h5>
                     <div class="form-floating mb-3">
                         <input type="number" class="form-control" @bind="TicketHandling.BarcodePositionX" id="BarcodePositionX" />
@@ -107,24 +117,21 @@
                         <label class="form-check-label" for="AddScissorsLine">Använd sax linje</label>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" @bind="TicketHandling.FlipBarcode" id="FlipBarcode" />
-                        <label class="form-check-label" for="FlipBarcode">Vänd streckkod</label>
+                @if (TicketHandling.Code == Barcode)
+                {
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" @bind="TicketHandling.FlipBarcode" id="FlipBarcode" />
+                            <label class="form-check-label" for="FlipBarcode">Vänd streckkod</label>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" @bind="TicketHandling.UseQRCode" id="UseQRCode" />
-                        <label class="form-check-label" for="UseQRCode">Använd QR Code</label>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" @bind="TicketHandling.HideBarcodeText" id="HideBarcodeText" />
+                            <label class="form-check-label" for="HideBarcodeText">Göm Streckkod text</label>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" @bind="TicketHandling.HideBarcodeText" id="HideBarcodeText" />
-                        <label class="form-check-label" for="HideBarcodeText">Göm Barcode text</label>
-                    </div>
-                </div>
+                }
             </div>
         </div>
 

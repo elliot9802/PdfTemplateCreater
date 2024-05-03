@@ -307,7 +307,7 @@ namespace Services
                 origin.Y + (ticketHandling.BarcodePositionY * scale)
             );
 
-            if (ticketHandling.UseQRCode)
+            if (ticketHandling.Code == Code.QrCode)
             {
                 DrawQRCode(page.Graphics, position, scale, ticketHandling, ticketData);
             }

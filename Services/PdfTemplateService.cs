@@ -78,7 +78,7 @@ namespace Services
                 Rutbokstav = "RB",
                 ArtikelNr = random.Next(10000, 99999).ToString(),
                 BokningsNr = random.Next(4000, 7999),
-                Datum = DateTime.Now.AddDays(random.Next(-30, 30)).ToString("yyyy-MM-dd-ss"),
+                Datum = DateTime.Now.AddDays(random.Next(-30, 30)).ToString("yyyy-MM-dd"),
                 datumStart = DateTime.Now.AddDays(random.Next(-30, 30)),
                 eMail = "användare@exempel.se",
                 KontaktPerson = "Kontakt Person",

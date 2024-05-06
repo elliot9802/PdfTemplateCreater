@@ -60,16 +60,7 @@ namespace AppPdfTemplateWApi.Controllers
                 _logger.LogError("Template name is required when saving to the database.");
                 return BadRequest("Template name is required when saving to the database.");
             }
-            //var customTextElements = _pdfService.DeserializeTextElements(optionsDto.CustomTextElementsJson);
-            //if (customTextElements == null)
-            //{
-            //    _logger.LogWarning("Invalid format for custom text elements.");
-            //    return BadRequest("Invalid format for custom text elements.");
-            //}
-            //optionsDto.TicketHandling.CustomTextElements = customTextElements;
 
-            //var customTextElements = _pdfService.DeserializeTextElements(optionsDto.CustomTextElementsJson);
-            //var ticketHandling = JsonConvert.DeserializeObject<TicketHandling>(optionsDto.TicketHandlingJson) ?? new TicketHandling();
             var ticketHandling = _pdfService.DeserializeTextElements(optionsDto.TicketHandlingJson);
 
             if (bgFile == null || bgFile.Length == 0)
@@ -210,6 +201,9 @@ namespace AppPdfTemplateWApi.Controllers
                 _logger.LogWarning("Invalid template data received.");
                 return BadRequest("Invalid template data.");
             }
+
+            var json = templateDto.TicketHandlingJson ?? string.Empty;
+            templateDto.TicketsHandling = _pdfService.DeserializeTextElements(json);
 
             byte[] bgFileData;
             await using (var ms = new MemoryStream())

@@ -148,6 +148,28 @@ namespace DbRepos
             }
         }
 
+        public async Task<int?> GetScissorLineFileStorageIdAsync()
+        {
+            try
+            {
+                await using var db = TicketTemplateDbContext.Create(_dbLogin);
+
+                var scissorLineFileData = await db.FileStorage
+                    .Join(db.FileDescription,
+                        storage => storage.FileStorageId,
+                        description => description.FileStorageId,
+                        (storage, description) => new { storage.FileStorageId, description.Name })
+                    .FirstOrDefaultAsync(x => x.Name != null && x.Name.Contains("scissor"));
+
+                return scissorLineFileData?.FileStorageId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error in GetScissorLineFileStorageIdAsync.");
+                throw new InvalidOperationException("An unexpected error occurred while retrieving the scissor line file storage ID.", ex);
+            }
+        }
+
         public async Task<TemplateCUdto> GetTemplateByIdAsync(Guid id)
         {
             await using var db = TicketTemplateDbContext.Create(_dbLogin);

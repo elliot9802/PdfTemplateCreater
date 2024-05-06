@@ -43,7 +43,7 @@
     <a href="https://github.com/elliot9802/PdfTemplateCreater"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/elliot9802/PdfTemplateCreater">View Demo</a>
+    <a href="https://segerlind.se/#projects">View Demo</a>
     ·
     <a href="https://github.com/elliot9802/PdfTemplateCreater/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
@@ -143,12 +143,13 @@ _Follow these steps to set up your project:_
    ```sh
    dotnet ef database update
    ```
-4. Configure Application Settings - Adjust the application settings in `appsettings.json` or `appsettings.Development.json` as needed, particularly for database connections and other integrations like API keys.
+4. Configure Application Settings - To configure the application's settings, adjust the `user-secrets` file with the neccessary values for database connections, API base URL, and, if available, the Syncfusion License Key:
    ```json
-   {
-     "ConnectionStrings": {
-       "DefaultConnection": "Server=your_server;Database=your_database;Trusted_Connection=True;"
-   }
+   "ApiSettings": {
+     "BaseUrl": "Your-API-Base-url"
+   },
+   "DbLogins": "Your-Database-Connection-String",
+   "SyncfusionLicenseKey": "Your-License-Key"
    ```
 5. Start the Application - You can run the application directly using the .NET CLI or through Visual Studio:
    ```sh

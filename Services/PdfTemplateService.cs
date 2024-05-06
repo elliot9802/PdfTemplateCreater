@@ -21,16 +21,12 @@ namespace Services
         private readonly float pdfHeight = 364f;
         private readonly TemplateRepository _repo;
         private readonly ILogger<PdfTemplateService> _logger;
-        private readonly string _scissorsLineImagePath;
 
         public PdfTemplateService(TemplateRepository repo, ILogger<PdfTemplateService> logger)
         {
             _repo = repo ?? throw new ArgumentNullException(nameof(repo));
 
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-            var imagePaths = AppConfig.ImagePathSettings;
-            _scissorsLineImagePath = imagePaths.ScissorsLineImagePath ?? throw new KeyNotFoundException("ScissorsLineImagePath configuration is missing.");
         }
 
         #endregion constructor logic
@@ -276,7 +272,7 @@ namespace Services
             DrawTextContent(page.Graphics, ticketOrigin, scaleFactor, ticketData, ticketHandling);
             DrawCustomTextElements(page.Graphics, ticketHandling, ticketOrigin, scaleFactor);
             DrawBarcodeOrQRCode(page, ticketOrigin, scaleFactor, ticketHandling, ticketData);
-            DrawScissorsLine(page.Graphics, ticketOrigin, scaleFactor, ticketHandling);
+            await DrawScissorsLine(page.Graphics, ticketOrigin, scaleFactor, ticketHandling);
             DrawVitec(page.Graphics, scaleFactor);
             if (ticketHandling.IncludeAd)
             {
@@ -387,11 +383,17 @@ namespace Services
             }
         }
 
-        private void DrawScissorsLine(PdfGraphics graphics, PointF origin, float scale, TicketHandling ticketHandling)
+        private async Task DrawScissorsLine(PdfGraphics graphics, PointF origin, float scale, TicketHandling ticketHandling)
         {
             if (ticketHandling.AddScissorsLine)
             {
-                using FileStream scissorsImageStream = new(_scissorsLineImagePath, FileMode.Open, FileAccess.Read);
+                int? scissorsLineFileStorageId = await _repo.GetScissorLineFileStorageIdAsync();
+
+                if (scissorsLineFileStorageId.HasValue)
+                {
+                    byte[] scissorsImageData = await _repo.GetFileDataAsync(scissorsLineFileStorageId.Value);
+
+                    using MemoryStream scissorsImageStream = new(scissorsImageData);
                 PdfBitmap scissorsLineImage = new(scissorsImageStream);
 
                 PointF scissorsPosition = new(
@@ -402,6 +404,7 @@ namespace Services
 
                 graphics.DrawImage(scissorsLineImage, scissorsPosition, scissorsSize);
             }
+        }
         }
 
         private static void DrawTextContent(PdfGraphics graphics, PointF origin, float scale, TicketsDataView ticketData, TicketHandling ticketHandling)

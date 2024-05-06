@@ -60,6 +60,21 @@ namespace Services
         #endregion 1:1 calls
 
         #region Creating Pdf methods
+        private static void AdjustTicketHandlingProperties(TicketHandling ticketHandling)
+        {
+            foreach (var config in ticketHandling.TextConfigs)
+            {
+                var style = config.Value.Style;
+                if (!style.Include)
+                {
+                    style.PositionX = null;
+                    style.PositionY = null;
+                    style.FontSize = null;
+                    style.FontColor = null;
+                    style.FontStyle = 0;
+                }
+            }
+        }
 
         public static TicketsDataView GenerateMockTicketData()
         {
@@ -128,6 +143,11 @@ namespace Services
 
         public async Task<byte[]> CreatePdfAsync(TicketHandling ticketHandling, byte[] bgFileData, string bgFileName, string? name, bool saveToDb)
         {
+            TicketHandling adjustedTicketHandling = JsonConvert.DeserializeObject<TicketHandling>(
+                JsonConvert.SerializeObject(ticketHandling)) ?? new TicketHandling();
+
+            AdjustTicketHandlingProperties(adjustedTicketHandling);
+
             int bgFileId = 0;
             string bgFilePath;
             string outputPath = GetTemporaryPdfFilePath();
@@ -150,7 +170,7 @@ namespace Services
 
                 using PdfDocument document = new();
                 PdfPage page = document.Pages.Add();
-                await DrawPageContent(page, bgFilePath, ticketData, ticketHandling);
+                await DrawPageContent(page, bgFilePath, ticketData, adjustedTicketHandling);
 
                 await SaveDocumentAsync(document, outputPath);
                 _logger.LogInformation("PDF created successfully at {OutputPath}", outputPath);
@@ -160,7 +180,7 @@ namespace Services
                 }
                 if (saveToDb)
                 {
-                    TemplateCUdto templateDetails = MapTicketHandlingToTemplateCUdto(ticketHandling);
+                    TemplateCUdto templateDetails = MapTicketHandlingToTemplateCUdto(adjustedTicketHandling);
                     templateDetails.Name = name!;
                     templateDetails.FileStorageID = bgFileId;
                     await CreateTemplateAsync(templateDetails);
@@ -394,17 +414,17 @@ namespace Services
                     byte[] scissorsImageData = await _repo.GetFileDataAsync(scissorsLineFileStorageId.Value);
 
                     using MemoryStream scissorsImageStream = new(scissorsImageData);
-                PdfBitmap scissorsLineImage = new(scissorsImageStream);
+                    PdfBitmap scissorsLineImage = new(scissorsImageStream);
 
-                PointF scissorsPosition = new(
-                origin.X,
-                origin.Y + (pdfHeight * scale) + (10 * scale)
-                );
-                SizeF scissorsSize = new(pdfWidth * scale, scissorsLineImage.Height * scale);
+                    PointF scissorsPosition = new(
+                        origin.X,
+                        origin.Y + (pdfHeight * scale) + (10 * scale)
+                    );
+                    SizeF scissorsSize = new(pdfWidth * scale, scissorsLineImage.Height * scale);
 
-                graphics.DrawImage(scissorsLineImage, scissorsPosition, scissorsSize);
+                    graphics.DrawImage(scissorsLineImage, scissorsPosition, scissorsSize);
+                }
             }
-        }
         }
 
         private static void DrawTextContent(PdfGraphics graphics, PointF origin, float scale, TicketsDataView ticketData, TicketHandling ticketHandling)

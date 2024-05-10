@@ -359,12 +359,33 @@ namespace Services
                 PdfFont customFont = GetCustomFont(fontSize, customTextElement.FontStyle);
                 PdfBrush customBrush = GetCustomBrush(customTextElement.FontColor);
 
-                PointF position = new(
+                float defaultMaxWidth = ticketHandling.MaxTextWidth * scale;
+
+                SizeF textSize = customFont.MeasureString(customTextElement.Text);
+
+                float pageWidth = graphics.ClientSize.Width;
+                float marginLeft = origin.X + ((customTextElement.PositionX ?? 0) * scale);
+                float availableWidth = pageWidth - marginLeft;
+                float maxWidth = Math.Min(textSize.Width, availableWidth);
+                if (maxWidth > defaultMaxWidth)
+                {
+                    maxWidth = defaultMaxWidth;
+                }
+                PdfStringFormat stringFormat = new()
+                {
+                    Alignment = PdfTextAlignment.Center,
+                    LineAlignment = PdfVerticalAlignment.Top,
+                    WordWrap = PdfWordWrapType.Word
+                };
+
+                RectangleF bounds = new(
                     origin.X + ((customTextElement.PositionX ?? 0) * scale),
-                    origin.Y + ((customTextElement.PositionY ?? 0) * scale)
+                    origin.Y + ((customTextElement.PositionY ?? 0) * scale),
+                    maxWidth,
+                    1000
                 );
 
-                graphics.DrawString(customTextElement.Text, customFont, customBrush, position);
+                graphics.DrawString(customTextElement.Text, customFont, customBrush, bounds, stringFormat);
             }
         }
 

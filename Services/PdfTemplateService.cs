@@ -1,5 +1,4 @@
-﻿using Configuration;
-using DbModels;
+﻿using DbModels;
 using DbRepos;
 using Microsoft.Extensions.Logging;
 using Models;
@@ -60,6 +59,7 @@ namespace Services
         #endregion 1:1 calls
 
         #region Creating Pdf methods
+
         private static void AdjustTicketHandlingProperties(TicketHandling ticketHandling)
         {
             foreach (var config in ticketHandling.TextConfigs)
@@ -86,7 +86,7 @@ namespace Services
                 Artikelnamn = "Artikel namn",
                 Beskrivning = "En beskrivande text som beskriver artikel",
                 namn = "Sektion",
-                namn1 = "Eventnamn",
+                namn1 = "Drottningholms slott - Drottningholm Palace (2023)",
                 namn2 = "Eventundernamn",
                 Ingang = "Ingång",
                 stolsnr = $"{random.Next(1, 20)}",
@@ -439,11 +439,33 @@ namespace Services
                     {
                         PdfFont font = GetCustomFont(config.Style.FontSize, config.Style.FontStyle);
                         PdfBrush brush = GetCustomBrush(config.Style.FontColor);
-                        PointF adjustedOrigin = new(
+                        float defaultMaxWidth = ticketHandling.MaxTextWidth * scale;
+
+                        SizeF textSize = font.MeasureString(dataValue);
+
+                        float pageWidth = graphics.ClientSize.Width;
+                        float marginLeft = origin.X + ((config.Style.PositionX ?? 0) * scale);
+                        float availableWidth = pageWidth - marginLeft;
+                        float maxWidth = Math.Min(textSize.Width, availableWidth);
+                        if (maxWidth > defaultMaxWidth)
+                        {
+                            maxWidth = defaultMaxWidth;
+                        }
+                        PdfStringFormat stringFormat = new()
+                        {
+                            Alignment = PdfTextAlignment.Center,
+                            LineAlignment = PdfVerticalAlignment.Top,
+                            WordWrap = PdfWordWrapType.Word
+                        };
+
+                        RectangleF bounds = new(
                             origin.X + ((config.Style.PositionX ?? 0) * scale),
-                            origin.Y + ((config.Style.PositionY ?? 0) * scale)
+                            origin.Y + ((config.Style.PositionY ?? 0) * scale),
+                            maxWidth,
+                            1000
                         );
-                        graphics.DrawString(dataValue, font, brush, adjustedOrigin);
+
+                        graphics.DrawString(dataValue, font, brush, bounds, stringFormat);
                     }
                 }
             }

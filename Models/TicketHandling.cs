@@ -20,6 +20,8 @@
         public float BarcodeWidth { get; set; } = 270f;
         public float BarcodeHeight { get; set; } = 90f;
         public bool HideBarcodeText { get; set; }
+        public float MaxTextWidth { get; set; } = 400f;
+
         public List<CustomTextElement>? CustomTextElements { get; set; } = new();
         public Dictionary<string, TextElementConfig> TextConfigs { get; set; } = new();
 

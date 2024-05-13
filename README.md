@@ -43,7 +43,7 @@
     <a href="https://github.com/elliot9802/PdfTemplateCreater"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://www.youtube.com/watch?v=QNHl4DZ5vtY">View Demo</a>
+    <a target="_blank" href="https://www.youtube.com/watch?v=QNHl4DZ5vtY">View Demo</a>
     ·
     <a href="https://github.com/elliot9802/PdfTemplateCreater/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
